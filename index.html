@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EPUB Reader</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body class="dark-theme">
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h1>📚 Library</h1>
+            </div>
+            <div class="library-container" id="libraryContainer">
+                <div class="empty-state">
+                    <p>No books yet</p>
+                    <p class="hint">Upload an EPUB to get started</p>
+                </div>
+            </div>
+            <div class="sidebar-footer">
+                <label for="epubUpload" class="upload-btn">
+                    <span>+ Upload EPUB</span>
+                    <input type="file" id="epubUpload" accept=".epub" hidden>
+                </label>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Top Bar -->
+            <header class="top-bar">
+                <div class="book-info" id="bookInfo">
+                    <span class="no-book">Select a book to start reading</span>
+                </div>
+                <div class="controls">
+                    <button class="control-btn" id="themeToggle" title="Toggle theme">
+                        <span class="icon">☀️</span>
+                    </button>
+                    <div class="wpm-control">
+                        <button class="control-btn" id="wpmMinus" title="Decrease speed">−</button>
+                        <span class="wpm-display"><span id="wpmValue">300</span> WPM</span>
+                        <button class="control-btn" id="wpmPlus" title="Increase speed">+</button>
+                    </div>
+                    <button class="control-btn play-btn" id="playPauseBtn" title="Play/Pause (Space)">
+                        <span class="icon" id="playIcon">▶</span>
+                    </button>
+                </div>
+            </header>
+
+            <!-- Reader Area -->
+            <div class="reader-container">
+                <!-- Chapter Title -->
+                <div class="chapter-header" id="chapterHeader">
+                    <h2 id="chapterTitle">Select a chapter</h2>
+                </div>
+
+                <!-- Spritz Display -->
+                <div class="spritz-container" id="spritzContainer">
+                    <div class="spritz-focus">
+                        <div class="spritz-word" id="spritzWord">
+                            <span class="word-left"></span>
+                            <span class="word-center"></span>
+                            <span class="word-right"></span>
+                        </div>
+                        <div class="focus-point"></div>
+                    </div>
+                    <div class="spritz-placeholder">
+                        Upload a book and select a chapter to begin
+                    </div>
+                </div>
+
+                <!-- Chapter Toggle -->
+                <button class="chapter-toggle" id="chapterToggle">
+                    <span>Show Chapter Text</span>
+                    <span class="toggle-icon">▼</span>
+                </button>
+
+                <!-- Chapter Text Panel -->
+                <div class="chapter-panel" id="chapterPanel">
+                    <div class="chapter-content" id="chapterContent">
+                        <p class="placeholder-text">Chapter text will appear here...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Progress Bar -->
+            <div class="progress-container">
+                <div class="progress-bar" id="progressBar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <span class="progress-text" id="progressText">0%</span>
+            </div>
+        </main>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay" hidden>
+        <div class="loading-spinner"></div>
+        <p>Processing EPUB...</p>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+    <script src="js/storage-manager.js"></script>
+    <script src="js/theme-manager.js"></script>
+    <script src="js/epub-parser.js"></script>
+    <script src="js/spritz-engine.js"></script>
+    <script src="js/ui-controller.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>

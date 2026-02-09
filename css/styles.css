@@ -1,0 +1,707 @@
+/* ========================================
+   EPUB Reader - Main Stylesheet
+   ======================================== */
+
+/* CSS Variables for Theming */
+:root {
+    /* Dark Theme (Default) */
+    --bg-primary: #0d1117;
+    --bg-secondary: #161b22;
+    --bg-tertiary: #21262d;
+    --bg-hover: #30363d;
+    --text-primary: #e6edf3;
+    --text-secondary: #7d8590;
+    --text-muted: #484f58;
+    --accent: #58a6ff;
+    --accent-hover: #79c0ff;
+    --highlight: #ffd700;
+    --highlight-glow: rgba(255, 215, 0, 0.4);
+    --orp: #f85149;
+    --border: #30363d;
+    --success: #238636;
+    --warning: #f85149;
+    --shadow: rgba(0, 0, 0, 0.4);
+    --overlay: rgba(0, 0, 0, 0.8);
+}
+
+.light-theme {
+    --bg-primary: #ffffff;
+    --bg-secondary: #f6f8fa;
+    --bg-tertiary: #eaeef2;
+    --bg-hover: #d0d7de;
+    --text-primary: #24292f;
+    --text-secondary: #57606a;
+    --text-muted: #8c959f;
+    --accent: #0969da;
+    --accent-hover: #0550ae;
+    --highlight: #d4a000;
+    --highlight-glow: rgba(212, 160, 0, 0.4);
+    --orp: #cf222e;
+    --border: #d0d7de;
+    --success: #1a7f37;
+    --warning: #cf222e;
+    --shadow: rgba(0, 0, 0, 0.1);
+    --overlay: rgba(255, 255, 255, 0.95);
+}
+
+/* Reset & Base */
+*, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html {
+    font-size: 16px;
+    height: 100%;
+}
+
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    height: 100vh;
+    overflow: hidden;
+    line-height: 1.5;
+    transition: background 0.3s ease, color 0.3s ease;
+}
+
+/* App Layout */
+.app-container {
+    display: flex;
+    height: 100vh;
+    width: 100vw;
+}
+
+/* ========================================
+   Sidebar
+   ======================================== */
+.sidebar {
+    width: 320px;
+    background: var(--bg-secondary);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    transition: background 0.3s ease;
+}
+
+.sidebar-header {
+    padding: 20px;
+    border-bottom: 1px solid var(--border);
+}
+
+.sidebar-header h1 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.library-container {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-secondary);
+}
+
+.empty-state .hint {
+    font-size: 0.875rem;
+    margin-top: 8px;
+    color: var(--text-muted);
+}
+
+/* Book Accordion */
+.book-item {
+    margin-bottom: 8px;
+    border-radius: 8px;
+    overflow: hidden;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.book-item:hover {
+    box-shadow: 0 2px 8px var(--shadow);
+}
+
+.book-header {
+    display: flex;
+    align-items: center;
+    padding: 12px 16px;
+    cursor: pointer;
+    transition: background 0.2s ease;
+    user-select: none;
+}
+
+.book-header:hover {
+    background: var(--bg-hover);
+}
+
+.book-header.active {
+    background: var(--accent);
+    color: white;
+}
+
+.book-toggle {
+    margin-right: 12px;
+    font-size: 0.75rem;
+    transition: transform 0.2s ease;
+    color: var(--text-secondary);
+}
+
+.book-item.expanded .book-toggle {
+    transform: rotate(90deg);
+}
+
+.book-header.active .book-toggle {
+    color: white;
+}
+
+.book-cover {
+    width: 40px;
+    height: 56px;
+    background: var(--bg-secondary);
+    border-radius: 4px;
+    margin-right: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    flex-shrink: 0;
+    overflow: hidden;
+}
+
+.book-cover img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.book-meta {
+    flex: 1;
+    min-width: 0;
+}
+
+.book-title {
+    font-weight: 500;
+    font-size: 0.9375rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--text-primary);
+}
+
+.book-author {
+    font-size: 0.8125rem;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.book-header.active .book-title,
+.book-header.active .book-author {
+    color: white;
+}
+
+.delete-book {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 4px;
+    opacity: 0;
+    transition: all 0.2s ease;
+}
+
+.book-header:hover .delete-book {
+    opacity: 1;
+}
+
+.delete-book:hover {
+    background: rgba(255, 255, 255, 0.2);
+    color: var(--warning);
+}
+
+/* Chapter List */
+.chapter-list {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+}
+
+.book-item.expanded .chapter-list {
+    max-height: 500px;
+    overflow-y: auto;
+}
+
+.chapter-item {
+    padding: 10px 16px 10px 52px;
+    cursor: pointer;
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    border-top: 1px solid var(--border);
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.chapter-item:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+.chapter-item.active {
+    background: var(--accent);
+    color: white;
+}
+
+.chapter-item.reading::before {
+    content: '▶ ';
+    color: var(--highlight);
+}
+
+/* Sidebar Footer */
+.sidebar-footer {
+    padding: 16px;
+    border-top: 1px solid var(--border);
+}
+
+.upload-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px;
+    background: var(--accent);
+    color: white;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.upload-btn:hover {
+    background: var(--accent-hover);
+    transform: translateY(-1px);
+}
+
+/* ========================================
+   Main Content
+   ======================================== */
+.main-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* Top Bar */
+.top-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 24px;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+    gap: 16px;
+}
+
+.book-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.book-info h2 {
+    font-size: 1.125rem;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.book-info .no-book {
+    color: var(--text-muted);
+    font-size: 0.9375rem;
+}
+
+.controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.control-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-primary);
+    cursor: pointer;
+    font-size: 1.125rem;
+    transition: all 0.2s ease;
+}
+
+.control-btn:hover {
+    background: var(--bg-hover);
+    border-color: var(--accent);
+}
+
+.play-btn {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+    width: 48px;
+    height: 48px;
+}
+
+.play-btn:hover {
+    background: var(--accent-hover);
+    transform: scale(1.05);
+}
+
+.wpm-control {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--bg-tertiary);
+    padding: 6px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+}
+
+.wpm-control .control-btn {
+    width: 32px;
+    height: 32px;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.wpm-display {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--text-primary);
+    min-width: 80px;
+    text-align: center;
+}
+
+/* ========================================
+   Reader Container
+   ======================================== */
+.reader-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding: 24px;
+}
+
+.chapter-header {
+    text-align: center;
+    margin-bottom: 24px;
+}
+
+.chapter-header h2 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+/* ========================================
+   Spritz Display
+   ======================================== */
+.spritz-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    min-height: 200px;
+}
+
+.spritz-focus {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 60px;
+}
+
+.spritz-word {
+    font-size: 3.5rem;
+    font-weight: 500;
+    font-family: 'Inter', sans-serif;
+    letter-spacing: -0.02em;
+    display: flex;
+    align-items: baseline;
+    color: var(--text-primary);
+    transition: all 0.1s ease;
+}
+
+.word-left,
+.word-right {
+    color: var(--text-secondary);
+}
+
+.word-center {
+    color: var(--orp);
+    font-weight: 600;
+}
+
+/* Focus Point Marker */
+.focus-point {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 8px;
+    height: 4px;
+    background: var(--orp);
+    border-radius: 2px;
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+/* New Chapter Indicator */
+.spritz-word.new-chapter .word-center {
+    color: var(--highlight);
+    animation: chapterFlash 3s ease;
+}
+
+@keyframes chapterFlash {
+    0%, 100% {
+        text-shadow: none;
+    }
+    10%, 90% {
+        text-shadow: 0 0 30px var(--highlight-glow),
+                     0 0 60px var(--highlight-glow);
+    }
+}
+
+.spritz-placeholder {
+    color: var(--text-muted);
+    font-size: 1.125rem;
+    text-align: center;
+}
+
+/* ========================================
+   Chapter Panel
+   ======================================== */
+.chapter-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    padding: 12px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 0.875rem;
+    font-weight: 500;
+    margin: 16px 0;
+    transition: all 0.2s ease;
+}
+
+.chapter-toggle:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+.chapter-toggle .toggle-icon {
+    transition: transform 0.3s ease;
+}
+
+.chapter-toggle.expanded .toggle-icon {
+    transform: rotate(180deg);
+}
+
+.chapter-panel {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.4s ease, padding 0.4s ease;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+}
+
+.chapter-panel.expanded {
+    max-height: 50vh;
+    padding: 24px;
+}
+
+.chapter-content {
+    height: 100%;
+    overflow-y: auto;
+    font-size: 1.125rem;
+    line-height: 2;
+    color: var(--text-primary);
+}
+
+.chapter-content p {
+    margin-bottom: 1.5em;
+}
+
+.chapter-content .word {
+    display: inline;
+    padding: 2px 0;
+    border-radius: 3px;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.chapter-content .word.active {
+    background: var(--accent);
+    color: white;
+}
+
+.chapter-content .word.new-chapter {
+    color: var(--highlight);
+    font-weight: 600;
+}
+
+.chapter-content .placeholder-text {
+    color: var(--text-muted);
+    text-align: center;
+    padding: 40px;
+}
+
+/* ========================================
+   Progress Bar
+   ======================================== */
+.progress-container {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 24px;
+    background: var(--bg-secondary);
+    border-top: 1px solid var(--border);
+}
+
+.progress-bar {
+    flex: 1;
+    height: 6px;
+    background: var(--bg-tertiary);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--accent-hover));
+    border-radius: 3px;
+    transition: width 0.3s ease;
+}
+
+.progress-text {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    min-width: 40px;
+    text-align: right;
+}
+
+/* ========================================
+   Loading Overlay
+   ======================================== */
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: var(--overlay);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    z-index: 1000;
+}
+
+.loading-spinner {
+    width: 48px;
+    height: 48px;
+    border: 4px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.loading-overlay p {
+    color: var(--text-secondary);
+    font-size: 0.9375rem;
+}
+
+/* ========================================
+   Scrollbars
+   ======================================== */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--bg-primary);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--text-muted);
+}
+
+/* ========================================
+   Responsive
+   ======================================== */
+@media (max-width: 768px) {
+    .sidebar {
+        position: absolute;
+        left: -320px;
+        z-index: 100;
+        transition: left 0.3s ease;
+    }
+    
+    .sidebar.open {
+        left: 0;
+    }
+    
+    .spritz-word {
+        font-size: 2.5rem;
+    }
+    
+    .wpm-display {
+        min-width: 60px;
+        font-size: 0.8125rem;
+    }
+}
+
+/* ========================================
+   Utility Classes
+   ======================================== */
+.hidden {
+    display: none !important;
+}
+
+[hidden] {
+    display: none !important;
+}
