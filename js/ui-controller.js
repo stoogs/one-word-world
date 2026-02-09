@@ -33,7 +33,15 @@ const UIController = {
                 this.loadBook(lastBook.id);
             }
         }
-        
+
+        // Listen for fullscreen changes to sync zen mode
+        document.addEventListener('fullscreenchange', () => {
+            if (!document.fullscreenElement && this.isZenMode) {
+                console.log('[ZEN MODE] Fullscreen exited, leaving zen mode');
+                this.exitZenMode();
+            }
+        });
+
         return this;
     },
 
@@ -49,6 +57,8 @@ const UIController = {
             // Top bar
             bookInfo: document.getElementById('bookInfo'),
             themeToggle: document.getElementById('themeToggle'),
+            orpColorPicker: document.getElementById('orpColorPicker'),
+            textColorPicker: document.getElementById('textColorPicker'),
             fontSizeMinus: document.getElementById('fontSizeMinus'),
             fontSizePlus: document.getElementById('fontSizePlus'),
             fontSizeValue: document.getElementById('fontSizeValue'),
@@ -90,7 +100,11 @@ const UIController = {
         e.themeToggle.addEventListener('click', () => {
             ThemeManager.toggle();
         });
-        
+
+        // Color pickers
+        e.orpColorPicker.addEventListener('input', (event) => this.changeORPColor(event.target.value));
+        e.textColorPicker.addEventListener('input', (event) => this.changeTextColor(event.target.value));
+
         // Font size controls
         e.fontSizeMinus.addEventListener('click', () => this.adjustFontSize(-4));
         e.fontSizePlus.addEventListener('click', () => this.adjustFontSize(4));
@@ -252,11 +266,58 @@ const UIController = {
             spritzWord.style.fontSize = savedFontSize + 'px';
         }
 
+        // Load and apply saved colors
+        const savedORPColor = settings.orpColor || '#f85149';
+        const savedTextColor = settings.textColor || '#e6edf3';
+        this.elements.orpColorPicker.value = savedORPColor;
+        this.elements.textColorPicker.value = savedTextColor;
+        this.applyColors(savedORPColor, savedTextColor);
+
         // Apply chapter panel state
         if (this.chapterPanelOpen) {
             this.elements.chapterPanel.classList.add('expanded');
             this.elements.chapterToggle.classList.add('expanded');
         }
+    },
+
+    /**
+     * Change ORP (middle letter) color
+     */
+    changeORPColor(color) {
+        document.documentElement.style.setProperty('--orp', color);
+        StorageManager.saveSettings({ orpColor: color });
+    },
+
+    /**
+     * Change text (side letters) color
+     */
+    changeTextColor(color) {
+        // Apply color directly to word side elements
+        this.applyTextColor(color);
+        StorageManager.saveSettings({ textColor: color });
+    },
+
+    /**
+     * Apply text color to side letter elements
+     */
+    applyTextColor(color) {
+        // Find all word-left and word-right elements and set inline style
+        const leftSpans = document.querySelectorAll('.word-left');
+        const rightSpans = document.querySelectorAll('.word-right');
+
+        leftSpans.forEach(el => el.style.color = color);
+        rightSpans.forEach(el => el.style.color = color);
+    },
+
+    /**
+     * Apply both colors
+     */
+    applyColors(orpColor, textColor) {
+        // Apply ORP color (middle letter) via CSS variable
+        document.documentElement.style.setProperty('--orp', orpColor);
+
+        // Apply text color (side letters) directly to elements
+        this.applyTextColor(textColor);
     },
 
     /**
