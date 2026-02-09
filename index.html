@@ -45,6 +45,28 @@
                     <button class="control-btn" id="themeToggle" title="Toggle theme">
                         <span class="icon">☀️</span>
                     </button>
+                    <div class="info-container">
+                        <button class="info-btn" id="infoBtn">ⓘ</button>
+                        <div class="info-tooltip">
+                            <h4>Keyboard Shortcuts</h4>
+                            <ul>
+                                <li><kbd>Space</kbd> - Play/Pause</li>
+                                <li><kbd>←/→</kbd> - Previous/Next word</li>
+                                <li><kbd>↑/↓</kbd> or <kbd>+/-</kbd> - Adjust WPM</li>
+                                <li><kbd>&lt;&gt;</kbd> - Adjust font size</li>
+                                <li><kbd>Z</kbd> - Toggle zen mode</li>
+                                <li><kbd>Esc</kbd> - Exit zen mode</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="color-control">
+                        <label for="orpColorPicker">ORP</label>
+                        <input type="color" id="orpColorPicker" value="#f85149">
+                    </div>
+                    <div class="color-control">
+                        <label for="textColorPicker">Text</label>
+                        <input type="color" id="textColorPicker" value="#e6edf3">
+                    </div>
                     <div class="font-size-control">
                         <button class="control-btn" id="fontSizeMinus" title="Decrease font size">−</button>
                         <span class="font-size-display"><span id="fontSizeValue">48</span>px</span>
