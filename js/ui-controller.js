@@ -10,6 +10,7 @@ const UIController = {
     currentBook: null,
     currentChapter: null,
     chapterPanelOpen: true,
+    expandedSections: new Set(), // Track expanded sections by ID
 
     /**
      * Initialize UI controller
@@ -85,6 +86,50 @@ const UIController = {
         
         // Keyboard shortcuts
         document.addEventListener('keydown', (event) => this.handleKeydown(event));
+        
+        // Delegate events for dynamic content
+        e.libraryContainer.addEventListener('click', (e) => this.handleLibraryClick(e));
+    },
+
+    /**
+     * Handle clicks in library container (event delegation)
+     */
+    handleLibraryClick(event) {
+        // Handle delete button
+        const deleteBtn = event.target.closest('.delete-book');
+        if (deleteBtn) {
+            event.stopPropagation();
+            const bookId = deleteBtn.dataset.bookId;
+            this.deleteBook(bookId);
+            return;
+        }
+        
+        // Handle section toggle
+        const sectionHeader = event.target.closest('.section-header');
+        if (sectionHeader) {
+            const bookId = sectionHeader.dataset.bookId;
+            const sectionId = sectionHeader.dataset.sectionId;
+            this.toggleSection(bookId, sectionId, sectionHeader);
+            return;
+        }
+        
+        // Handle chapter click
+        const chapterItem = event.target.closest('.chapter-item');
+        if (chapterItem) {
+            const bookId = chapterItem.dataset.bookId;
+            const chapterIndex = parseInt(chapterItem.dataset.chapterIndex);
+            this.loadChapter(bookId, chapterIndex);
+            return;
+        }
+        
+        // Handle book header click (main toggle)
+        const bookHeader = event.target.closest('.book-header');
+        if (bookHeader) {
+            const bookId = bookHeader.dataset.bookId;
+            const bookItem = bookHeader.closest('.book-item');
+            bookItem.classList.toggle('expanded');
+            this.loadBook(bookId);
+        }
     },
 
     /**
@@ -120,20 +165,18 @@ const UIController = {
             // Parse EPUB
             const bookData = await EpubParser.parse(file);
             
-            // Check if we can store full content
-            const contentSize = StorageManager.getSize(bookData.chapters);
-            const canStoreFull = StorageManager.canStoreFullContent(contentSize);
+            console.log(`Parsed "${bookData.title}" with ${bookData.chapters.length} chapters`);
             
-            if (!canStoreFull) {
-                console.log('Book too large, storing metadata only');
-                // Keep chapters in memory but don't persist them
-                const { chapters, ...metadata } = bookData;
-                StorageManager.addBook(metadata);
-                // Store full data temporarily
-                this.currentBook = bookData;
-            } else {
-                StorageManager.addBook(bookData);
+            // Save book (10MB limit)
+            const saved = StorageManager.addBook(bookData);
+            
+            if (!saved) {
+                console.error('Storage limit reached');
+                alert('Unable to save book - storage limit reached (10MB). Try removing some books first.');
+                return;
             }
+            
+            console.log('Book saved successfully');
             
             // Refresh library and load book
             this.renderLibrary();
@@ -168,51 +211,10 @@ const UIController = {
         }
         
         container.innerHTML = library.map(book => this.renderBookItem(book)).join('');
-        
-        // Bind book item events
-        container.querySelectorAll('.book-header').forEach(header => {
-            header.addEventListener('click', (e) => {
-                // Don't trigger if delete button clicked
-                if (e.target.closest('.delete-book')) return;
-                
-                const bookId = header.dataset.bookId;
-                const bookItem = header.closest('.book-item');
-                
-                // Toggle expand
-                bookItem.classList.toggle('expanded');
-                
-                // Load book
-                this.loadBook(bookId);
-            });
-        });
-        
-        // Bind delete buttons
-        container.querySelectorAll('.delete-book').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const bookId = btn.dataset.bookId;
-                this.deleteBook(bookId);
-            });
-        });
-        
-        // Bind chapter clicks
-        container.querySelectorAll('.chapter-item').forEach(chapter => {
-            chapter.addEventListener('click', () => {
-                const bookId = chapter.dataset.bookId;
-                const chapterIndex = parseInt(chapter.dataset.chapterIndex);
-                
-                // Mark as active
-                container.querySelectorAll('.chapter-item').forEach(c => c.classList.remove('active'));
-                chapter.classList.add('active');
-                
-                // Load chapter
-                this.loadChapter(bookId, chapterIndex);
-            });
-        });
     },
 
     /**
-     * Render single book item
+     * Render single book item with hierarchical TOC
      */
     renderBookItem(book) {
         const isExpanded = this.currentBook && this.currentBook.id === book.id;
@@ -223,11 +225,10 @@ const UIController = {
             ? `<img src="${book.cover}" alt="Cover">`
             : '📖';
         
-        const chaptersHtml = book.spine.map((ch, idx) => `
-            <div class="chapter-item" data-book-id="${book.id}" data-chapter-index="${idx}">
-                ${ch.title || `Chapter ${idx + 1}`}
-            </div>
-        `).join('');
+        // Render hierarchical TOC
+        const tocHtml = book.toc && book.toc.length > 0
+            ? this.renderTOCTree(book.toc, book.id, book.chapters || [])
+            : '<div class="no-toc">No table of contents available</div>';
         
         return `
             <div class="book-item ${expandedClass}" data-book-id="${book.id}">
@@ -240,11 +241,106 @@ const UIController = {
                     </div>
                     <button class="delete-book" data-book-id="${book.id}" title="Remove book">×</button>
                 </div>
-                <div class="chapter-list">
-                    ${chaptersHtml}
+                <div class="toc-tree">
+                    ${tocHtml}
                 </div>
             </div>
         `;
+    },
+
+    /**
+     * Render TOC tree recursively
+     */
+    renderTOCTree(items, bookId, chapters) {
+        if (!items || items.length === 0) return '';
+        
+        // Debug logging
+        console.log(`Rendering TOC tree: ${items.length} items, ${chapters?.length || 0} chapters available`);
+        
+        return items.map(item => {
+            if (item.type === 'section' && item.children && item.children.length > 0) {
+                // Find first chapter in this section for auto-load
+                const firstChapterIndex = this.findFirstChapterInSection(item, chapters);
+                
+                return `
+                    <div class="toc-section">
+                        <div class="section-header" 
+                             data-book-id="${bookId}" 
+                             data-section-id="${item.id}"
+                             data-first-chapter="${firstChapterIndex}">
+                            <span class="section-toggle">▶</span>
+                            <span class="section-title">${this.escapeHtml(item.title || 'Section')}</span>
+                        </div>
+                        <div class="section-children">
+                            ${this.renderTOCTree(item.children, bookId, chapters)}
+                        </div>
+                    </div>
+                `;
+            } else {
+                // Regular item or leaf node - find matching chapter
+                const chapterIndex = EpubParser.findChapterIndexByHref(chapters, item.href);
+                if (chapterIndex === -1) {
+                    // This TOC item doesn't have a matching chapter (might be non-reading content)
+                    console.log(`No chapter found for TOC item: "${item.title}" href: ${item.href}`);
+                    return '';
+                }
+                
+                const chapter = chapters[chapterIndex];
+                const title = chapter.displayNumber + (chapter.title ? ': ' + chapter.title : '');
+                const preview = chapter.preview || '';
+                
+                return `
+                    <div class="chapter-item" 
+                         data-book-id="${bookId}" 
+                         data-chapter-index="${chapterIndex}">
+                        <div class="chapter-title">${this.escapeHtml(title)}</div>
+                        ${preview ? `<div class="chapter-preview">${this.escapeHtml(preview)}</div>` : ''}
+                    </div>
+                `;
+            }
+        }).join('');
+    },
+
+    /**
+     * Find first readable chapter in a section
+     */
+    findFirstChapterInSection(section, chapters) {
+        if (!section.children) return -1;
+        
+        for (const child of section.children) {
+            if (child.type === 'section') {
+                const nestedIndex = this.findFirstChapterInSection(child, chapters);
+                if (nestedIndex !== -1) return nestedIndex;
+            } else {
+                const index = EpubParser.findChapterIndexByHref(chapters, child.href);
+                if (index !== -1) return index;
+            }
+        }
+        
+        return -1;
+    },
+
+    /**
+     * Toggle section expansion and auto-load first chapter
+     */
+    toggleSection(bookId, sectionId, sectionHeader) {
+        const section = sectionHeader.closest('.toc-section');
+        const children = section.querySelector('.section-children');
+        const isExpanded = section.classList.contains('expanded');
+        
+        if (isExpanded) {
+            section.classList.remove('expanded');
+            children.style.maxHeight = '0';
+        } else {
+            section.classList.add('expanded');
+            children.style.maxHeight = children.scrollHeight + 'px';
+            
+            // Auto-load first chapter in section
+            const firstChapterIndex = sectionHeader.dataset.firstChapter;
+            if (firstChapterIndex && firstChapterIndex !== '-1') {
+                this.loadChapter(bookId, parseInt(firstChapterIndex));
+            }
+        }
     },
 
     /**
@@ -284,8 +380,14 @@ const UIController = {
         
         this.currentChapter = chapter;
         
-        // Update chapter header
-        this.elements.chapterTitle.textContent = chapter.title;
+        // Update chapter header with both title and preview
+        const title = chapter.displayNumber + (chapter.title ? ': ' + chapter.title : '');
+        const preview = chapter.preview || '';
+        
+        this.elements.chapterTitle.innerHTML = `
+            <div class="chapter-title-line">${this.escapeHtml(title)}</div>
+            ${preview ? `<div class="chapter-preview-line">${this.escapeHtml(preview)}</div>` : ''}
+        `;
         
         // Render chapter content
         this.renderChapterContent(chapter);
@@ -301,8 +403,82 @@ const UIController = {
         // Update active chapter in sidebar
         this.highlightActiveChapter(bookId, chapterIndex);
         
+        // Expand sections containing this chapter
+        this.expandSectionsForChapter(bookId, chapterIndex);
+        
         // Save progress
         StorageManager.saveProgress(bookId, chapterIndex, wordIndex);
+    },
+
+    /**
+     * Expand sections that contain the active chapter
+     */
+    expandSectionsForChapter(bookId, chapterIndex) {
+        const book = this.currentBook;
+        if (!book || !book.toc) return;
+        
+        const container = this.elements.libraryContainer;
+        const bookItem = container.querySelector(`.book-item[data-book-id="${bookId}"]`);
+        if (!bookItem) return;
+        
+        // Find the chapter's href
+        const chapter = book.chapters[chapterIndex];
+        if (!chapter) return;
+        
+        // Find which section contains this chapter
+        const containingSection = this.findContainingSection(book.toc, chapter.href);
+        if (containingSection) {
+            const sectionHeader = bookItem.querySelector(
+                `.section-header[data-section-id="${containingSection.id}"]`
+            );
+            if (sectionHeader) {
+                const section = sectionHeader.closest('.toc-section');
+                if (!section.classList.contains('expanded')) {
+                    section.classList.add('expanded');
+                    const children = section.querySelector('.section-children');
+                    if (children) {
+                        children.style.maxHeight = children.scrollHeight + 'px';
+                    }
+                }
+            }
+        }
+    },
+
+    /**
+     * Find which section contains a given href
+     */
+    findContainingSection(items, href, currentSection = null) {
+        for (const item of items) {
+            if (item.type === 'section' && item.children) {
+                // Check if any child matches
+                for (const child of item.children) {
+                    if (child.href && this.hrefMatch(child.href, href)) {
+                        return item;
+                    }
+                    if (child.type === 'section') {
+                        const nested = this.findContainingSection([child], href, item);
+                        if (nested) return nested;
+                    }
+                }
+            }
+        }
+        return null;
+    },
+
+    /**
+     * Check if two hrefs match (handling anchors and path differences)
+     */
+    hrefMatch(href1, href2) {
+        const normalized1 = href1.split('#')[0].toLowerCase();
+        const normalized2 = href2.split('#')[0].toLowerCase();
+        
+        if (normalized1 === normalized2) return true;
+        
+        // Also check filename only
+        const filename1 = normalized1.split('/').pop();
+        const filename2 = normalized2.split('/').pop();
+        
+        return filename1 === filename2;
     },
 
     /**
@@ -496,7 +672,7 @@ const UIController = {
      */
     resetReader() {
         this.elements.bookInfo.innerHTML = '<span class="no-book">Select a book to start reading</span>';
-        this.elements.chapterTitle.textContent = 'Select a chapter';
+        this.elements.chapterTitle.innerHTML = 'Select a chapter';
         this.elements.chapterContent.innerHTML = '<p class="placeholder-text">Chapter text will appear here...</p>';
         this.elements.spritzWord.style.display = 'none';
         this.elements.spritzContainer.querySelector('.spritz-placeholder').style.display = 'block';

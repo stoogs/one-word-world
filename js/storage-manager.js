@@ -9,7 +9,7 @@ const StorageManager = {
         SETTINGS: 'epub-settings'
     },
 
-    MAX_STORAGE_SIZE: 4.5 * 1024 * 1024, // 4.5MB to stay under 5MB limit
+    MAX_STORAGE_SIZE: 10 * 1024 * 1024, // 10MB limit for book storage
 
     /**
      * Initialize storage
@@ -155,25 +155,6 @@ const StorageManager = {
             console.error('Failed to save settings:', e);
             return false;
         }
-    },
-
-    /**
-     * Check if we can store the full book content
-     */
-    canStoreFullContent(contentSize) {
-        const library = this.getLibrary();
-        const progress = this.getProgress();
-        const settings = this.getSettings();
-        
-        const currentSize = JSON.stringify({ library, progress, settings }).length;
-        return (currentSize + contentSize) < this.MAX_STORAGE_SIZE;
-    },
-
-    /**
-     * Estimate size of data in bytes
-     */
-    getSize(data) {
-        return JSON.stringify(data).length * 2; // Rough estimate (2 bytes per char)
     },
 
     /**

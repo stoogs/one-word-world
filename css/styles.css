@@ -228,43 +228,124 @@ body {
     color: var(--warning);
 }
 
-/* Chapter List */
-.chapter-list {
+/* TOC Tree - Hierarchical Structure */
+.toc-tree {
     max-height: 0;
     overflow: hidden;
     transition: max-height 0.3s ease;
 }
 
-.book-item.expanded .chapter-list {
-    max-height: 500px;
+.book-item.expanded .toc-tree {
+    max-height: 600px;
     overflow-y: auto;
 }
 
-.chapter-item {
-    padding: 10px 16px 10px 52px;
-    cursor: pointer;
-    font-size: 0.875rem;
-    color: var(--text-secondary);
+/* TOC Section (Part/Book header) */
+.toc-section {
     border-top: 1px solid var(--border);
+}
+
+.section-header {
+    display: flex;
+    align-items: center;
+    padding: 12px 16px 12px 48px;
+    cursor: pointer;
+    background: var(--bg-secondary);
     transition: all 0.2s ease;
+    user-select: none;
+}
+
+.section-header:hover {
+    background: var(--bg-hover);
+}
+
+.section-toggle {
+    font-size: 0.625rem;
+    margin-right: 8px;
+    transition: transform 0.2s ease;
+    color: var(--text-muted);
+}
+
+.toc-section.expanded .section-toggle {
+    transform: rotate(90deg);
+}
+
+.section-title {
+    font-weight: 600;
+    font-size: 0.8125rem;
+    color: var(--text-primary);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 
+/* Section Children */
+.section-children {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+    padding-left: 16px;
+}
+
+.toc-section.expanded .section-children {
+    max-height: 500px;
+    overflow-y: auto;
+}
+
+/* Chapter Items */
+.chapter-item {
+    padding: 10px 16px 10px 64px;
+    cursor: pointer;
+    border-top: 1px solid var(--border);
+    transition: all 0.2s ease;
+}
+
 .chapter-item:hover {
     background: var(--bg-hover);
-    color: var(--text-primary);
 }
 
 .chapter-item.active {
     background: var(--accent);
+}
+
+.chapter-item.active .chapter-title {
     color: white;
 }
 
-.chapter-item.reading::before {
+.chapter-item.active .chapter-preview {
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.chapter-title {
+    font-size: 0.875rem;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-weight: 500;
+}
+
+.chapter-preview {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-top: 2px;
+    font-style: italic;
+}
+
+.chapter-item.reading .chapter-title::before {
     content: '▶ ';
     color: var(--highlight);
+}
+
+/* No TOC message */
+.no-toc {
+    padding: 20px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.875rem;
 }
 
 /* Sidebar Footer */
@@ -411,10 +492,19 @@ body {
     margin-bottom: 24px;
 }
 
-.chapter-header h2 {
+.chapter-title-line {
     font-size: 1.5rem;
     font-weight: 600;
     color: var(--text-primary);
+    line-height: 1.3;
+}
+
+.chapter-preview-line {
+    font-size: 1rem;
+    color: var(--text-muted);
+    margin-top: 8px;
+    font-style: italic;
+    line-height: 1.4;
 }
 
 /* ========================================

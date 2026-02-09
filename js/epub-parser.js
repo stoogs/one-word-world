@@ -37,16 +37,22 @@ const EpubParser = {
             const basePath = opfPath.substring(0, opfPath.lastIndexOf('/') + 1);
             
             // Parse NCX or NAV for TOC
-            let toc = [];
+            let tocTree = [];
+            let flatToc = [];
+            
             if (opfData.ncx) {
                 const ncxContent = await this.getFileContent(zip, basePath + opfData.ncx);
                 if (ncxContent) {
-                    toc = this.parseNCX(ncxContent);
+                    const parsed = this.parseNCXHierarchical(ncxContent);
+                    tocTree = parsed.tree;
+                    flatToc = parsed.flat;
                 }
             } else if (opfData.nav) {
                 const navContent = await this.getFileContent(zip, basePath + opfData.nav);
                 if (navContent) {
-                    toc = this.parseNAV(navContent);
+                    const parsed = this.parseNAVHierarchical(navContent);
+                    tocTree = parsed.tree;
+                    flatToc = parsed.flat;
                 }
             }
             
@@ -56,8 +62,10 @@ const EpubParser = {
                 cover = await this.getFileDataUrl(zip, basePath + opfData.cover);
             }
             
-            // Process spine into chapters
-            const chapters = await this.processSpine(zip, opfData.spine, opfData.manifest, basePath, toc);
+            // Process spine into hierarchical chapters
+            const chapters = await this.processSpineHierarchical(
+                zip, opfData.spine, opfData.manifest, basePath, tocTree
+            );
             
             // Generate unique ID
             const id = this.generateId(file.name);
@@ -69,13 +77,8 @@ const EpubParser = {
                 author: opfData.metadata.creator || 'Unknown Author',
                 description: opfData.metadata.description || '',
                 cover,
-                spine: chapters.map((ch, idx) => ({
-                    id: ch.id,
-                    href: ch.href,
-                    title: ch.title,
-                    index: idx
-                })),
-                toc,
+                toc: tocTree,           // Hierarchical TOC
+                flatToc,               // Flat list for reference
                 chapters,
                 uploadDate: Date.now()
             };
@@ -232,72 +235,131 @@ const EpubParser = {
     },
 
     /**
-     * Parse NCX file for table of contents
+     * Parse NCX file hierarchically
      */
-    parseNCX(xml) {
+    parseNCXHierarchical(xml) {
         const parser = new DOMParser();
         const doc = parser.parseFromString(xml, 'application/xml');
         
-        const toc = [];
-        const navPoints = doc.querySelectorAll('navPoint');
+        const tree = [];
+        const flat = [];
         
-        navPoints.forEach((point, index) => {
-            const label = point.querySelector('navLabel text');
-            const content = point.querySelector('content');
+        // Get all top-level navPoints
+        const navMap = doc.querySelector('navMap');
+        if (navMap) {
+            const topLevelPoints = Array.from(navMap.children).filter(
+                child => child.tagName.toLowerCase() === 'navpoint'
+            );
             
-            if (label && content) {
-                toc.push({
-                    title: label.textContent.trim(),
-                    href: content.getAttribute('src'),
-                    index
-                });
-            }
-        });
+            topLevelPoints.forEach((point, index) => {
+                const item = this.parseNavPoint(point, index, flat);
+                tree.push(item);
+            });
+        }
         
-        return toc;
+        return { tree, flat };
     },
 
     /**
-     * Parse NAV file (EPUB3) for table of contents
+     * Parse individual navPoint recursively
      */
-    parseNAV(xml) {
+    parseNavPoint(point, index, flatList, depth = 0) {
+        const label = point.querySelector('navLabel text');
+        const content = point.querySelector('content');
+        const children = Array.from(point.children).filter(
+            child => child.tagName.toLowerCase() === 'navpoint'
+        );
+        
+        const title = label ? this.cleanTitle(label.textContent) : '';
+        const href = content ? content.getAttribute('src') : '';
+        
+        const item = {
+            id: point.getAttribute('id') || `nav-${index}`,
+            title,
+            href,
+            depth,
+            type: children.length > 0 ? 'section' : 'item'
+        };
+        
+        flatList.push(item);
+        
+        if (children.length > 0) {
+            item.children = [];
+            children.forEach((child, childIndex) => {
+                const childItem = this.parseNavPoint(child, childIndex, flatList, depth + 1);
+                item.children.push(childItem);
+            });
+        }
+        
+        return item;
+    },
+
+    /**
+     * Parse NAV file (EPUB3) hierarchically
+     */
+    parseNAVHierarchical(xml) {
         const parser = new DOMParser();
         const doc = parser.parseFromString(xml, 'application/xml');
         
-        const toc = [];
+        const tree = [];
+        const flat = [];
+        
         const tocElement = doc.querySelector('nav[epub:type="toc"]') || doc.querySelector('nav');
         
         if (tocElement) {
-            const links = tocElement.querySelectorAll('a');
-            links.forEach((link, index) => {
-                toc.push({
-                    title: link.textContent.trim(),
-                    href: link.getAttribute('href'),
-                    index
+            const ol = tocElement.querySelector('ol');
+            if (ol) {
+                const listItems = Array.from(ol.children);
+                listItems.forEach((li, index) => {
+                    const item = this.parseNavListItem(li, index, flat);
+                    tree.push(item);
                 });
-            });
+            }
         }
         
-        return toc;
+        return { tree, flat };
     },
 
     /**
-     * Process spine items into chapters
+     * Parse NAV list item recursively
      */
-    async processSpine(zip, spine, manifest, basePath, toc) {
-        const chapters = [];
+    parseNavListItem(li, index, flatList, depth = 0) {
+        const link = li.querySelector('a');
+        const ol = li.querySelector('ol');
         
-        // Build TOC lookup map by href for better matching
-        const tocMap = new Map();
-        if (toc && toc.length > 0) {
-            toc.forEach(entry => {
-                // Normalize href for matching (remove anchors, normalize path)
-                const normalizedHref = this.normalizeHref(entry.href);
-                tocMap.set(normalizedHref, entry.title);
+        const title = link ? this.cleanTitle(link.textContent) : '';
+        const href = link ? link.getAttribute('href') : '';
+        
+        const item = {
+            id: `nav-${index}`,
+            title,
+            href,
+            depth,
+            type: ol ? 'section' : 'item'
+        };
+        
+        flatList.push(item);
+        
+        if (ol) {
+            item.children = [];
+            const children = Array.from(ol.children);
+            children.forEach((child, childIndex) => {
+                const childItem = this.parseNavListItem(child, childIndex, flatList, depth + 1);
+                item.children.push(childItem);
             });
         }
         
-        let chapterNum = 0;
+        return item;
+    },
+
+    /**
+     * Process spine into hierarchical chapters
+     */
+    async processSpineHierarchical(zip, spine, manifest, basePath, tocTree) {
+        // Build flat list of chapters with chapterIndex
+        const allChapters = [];
+        let sequentialChapterNum = 0;
+        
         for (const itemId of spine) {
             const manifestItem = manifest[itemId];
             if (!manifestItem) continue;
@@ -317,78 +379,74 @@ const EpubParser = {
                 continue;
             }
             
-            chapterNum++;
+            sequentialChapterNum++;
             
-            // Extract title using priority: h1 → TOC → h2 → first 4 words
-            const title = this.extractTitle(content, href, tocMap, chapterNum, words);
+            // Extract title and preview
+            const { title, preview } = this.extractTitleAndPreview(content, href, words);
             
-            chapters.push({
+            allChapters.push({
                 id: itemId,
                 href,
                 title,
+                preview,
+                displayNumber: `Chapter ${sequentialChapterNum}`,
                 words,
-                content // Raw HTML for chapter panel
+                content,
+                chapterIndex: allChapters.length
             });
         }
         
-        return chapters;
+        return allChapters;
     },
 
     /**
-     * Normalize href for TOC matching
+     * Extract title and preview from content
+     * Priority: h1 → h2 → first 4 words
+     * Preview is always first 4 words
      */
-    normalizeHref(href) {
-        if (!href) return '';
-        // Remove anchor
-        const withoutAnchor = href.split('#')[0];
-        // Normalize path separators
-        return withoutAnchor.replace(/\\/g, '/').toLowerCase();
-    },
-
-    /**
-     * Extract title from multiple sources (Priority B: h1 → TOC → h2 → first 4 words)
-     */
-    extractTitle(html, href, tocMap, chapterNum, words) {
+    extractTitleAndPreview(html, href, words) {
         const parser = new DOMParser();
         const doc = parser.parseFromString(html, 'text/html');
+        
+        let title = '';
         
         // 1. Try h1 tag first
         const h1 = doc.querySelector('h1');
         if (h1) {
-            const title = this.cleanTitle(h1.textContent);
-            if (title) return title;
-        }
-        
-        // 2. Try TOC match by href
-        const normalizedHref = this.normalizeHref(href);
-        if (tocMap.has(normalizedHref)) {
-            const tocTitle = this.cleanTitle(tocMap.get(normalizedHref));
-            if (tocTitle) return tocTitle;
-        }
-        
-        // Also try matching just the filename
-        const filename = normalizedHref.split('/').pop();
-        for (const [tocHref, tocTitle] of tocMap.entries()) {
-            if (tocHref.endsWith(filename) || filename.endsWith(tocHref.split('/').pop())) {
-                const title = this.cleanTitle(tocTitle);
-                if (title) return title;
+            const h1Text = this.cleanTitle(h1.textContent);
+            if (h1Text && h1Text !== '.' && h1Text !== ' ') {
+                title = h1Text;
             }
         }
         
-        // 3. Try h2 tag
-        const h2 = doc.querySelector('h2');
-        if (h2) {
-            const title = this.cleanTitle(h2.textContent);
-            if (title) return title;
+        // 2. Try h2 tag
+        if (!title) {
+            const h2 = doc.querySelector('h2');
+            if (h2) {
+                const h2Text = this.cleanTitle(h2.textContent);
+                if (h2Text && h2Text !== '.' && h2Text !== ' ') {
+                    title = h2Text;
+                }
+            }
         }
         
-        // 4. Use first 4 words + "..."
+        // 3. Use first 4 words as title
+        if (!title && words && words.length >= 4) {
+            title = words.slice(0, 4).join(' ');
+        }
+        
+        // 4. Fallback
+        if (!title) {
+            title = 'Untitled';
+        }
+        
+        // Always generate preview from first 4 words
+        let preview = '';
         if (words && words.length >= 4) {
-            return words.slice(0, 4).join(' ') + '...';
+            preview = words.slice(0, 4).join(' ') + '...';
         }
         
-        // 5. Fallback to "Chapter X"
-        return `Chapter ${chapterNum}`;
+        return { title, preview };
     },
 
     /**
@@ -409,6 +467,17 @@ const EpubParser = {
         }
         
         return cleaned;
+    },
+
+    /**
+     * Normalize href for TOC matching
+     */
+    normalizeHref(href) {
+        if (!href) return '';
+        // Remove anchor
+        const withoutAnchor = href.split('#')[0];
+        // Normalize path separators
+        return withoutAnchor.replace(/\\/g, '/').toLowerCase();
     },
 
     /**
@@ -459,9 +528,30 @@ const EpubParser = {
         
         return {
             ...chapter,
-            title: chapter.title || `Chapter ${chapterIndex + 1}`,
             index: chapterIndex,
             totalChapters: book.chapters.length
         };
+    },
+
+    /**
+     * Match TOC item to chapter by href
+     */
+    findChapterIndexByHref(chapters, href) {
+        const normalizedTarget = this.normalizeHref(href);
+        
+        for (let i = 0; i < chapters.length; i++) {
+            const normalizedChapter = this.normalizeHref(chapters[i].href);
+            if (normalizedChapter === normalizedTarget) {
+                return i;
+            }
+            // Also try matching just filename
+            const chapterFilename = normalizedChapter.split('/').pop();
+            const targetFilename = normalizedTarget.split('/').pop();
+            if (chapterFilename === targetFilename) {
+                return i;
+            }
+        }
+        
+        return -1;
     }
 };
