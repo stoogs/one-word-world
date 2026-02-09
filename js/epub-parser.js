@@ -57,7 +57,7 @@ const EpubParser = {
             }
             
             // Process spine into chapters
-            const chapters = await this.processSpine(zip, opfData.spine, opfData.manifest, basePath);
+            const chapters = await this.processSpine(zip, opfData.spine, opfData.manifest, basePath, toc);
             
             // Generate unique ID
             const id = this.generateId(file.name);
@@ -72,7 +72,7 @@ const EpubParser = {
                 spine: chapters.map((ch, idx) => ({
                     id: ch.id,
                     href: ch.href,
-                    title: toc[idx]?.title || `Chapter ${idx + 1}`,
+                    title: ch.title,
                     index: idx
                 })),
                 toc,
@@ -284,9 +284,20 @@ const EpubParser = {
     /**
      * Process spine items into chapters
      */
-    async processSpine(zip, spine, manifest, basePath) {
+    async processSpine(zip, spine, manifest, basePath, toc) {
         const chapters = [];
         
+        // Build TOC lookup map by href for better matching
+        const tocMap = new Map();
+        if (toc && toc.length > 0) {
+            toc.forEach(entry => {
+                // Normalize href for matching (remove anchors, normalize path)
+                const normalizedHref = this.normalizeHref(entry.href);
+                tocMap.set(normalizedHref, entry.title);
+            });
+        }
+        
+        let chapterNum = 0;
         for (const itemId of spine) {
             const manifestItem = manifest[itemId];
             if (!manifestItem) continue;
@@ -300,16 +311,104 @@ const EpubParser = {
             // Parse HTML content
             const words = this.extractWords(content);
             
+            // Filter: skip chapters with fewer than 6 words
+            if (words.length < 6) {
+                console.log(`Skipping ${href}: only ${words.length} words`);
+                continue;
+            }
+            
+            chapterNum++;
+            
+            // Extract title using priority: h1 → TOC → h2 → first 4 words
+            const title = this.extractTitle(content, href, tocMap, chapterNum, words);
+            
             chapters.push({
                 id: itemId,
                 href,
-                title: '', // Will be filled from TOC
+                title,
                 words,
                 content // Raw HTML for chapter panel
             });
         }
         
         return chapters;
+    },
+
+    /**
+     * Normalize href for TOC matching
+     */
+    normalizeHref(href) {
+        if (!href) return '';
+        // Remove anchor
+        const withoutAnchor = href.split('#')[0];
+        // Normalize path separators
+        return withoutAnchor.replace(/\\/g, '/').toLowerCase();
+    },
+
+    /**
+     * Extract title from multiple sources (Priority B: h1 → TOC → h2 → first 4 words)
+     */
+    extractTitle(html, href, tocMap, chapterNum, words) {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        
+        // 1. Try h1 tag first
+        const h1 = doc.querySelector('h1');
+        if (h1) {
+            const title = this.cleanTitle(h1.textContent);
+            if (title) return title;
+        }
+        
+        // 2. Try TOC match by href
+        const normalizedHref = this.normalizeHref(href);
+        if (tocMap.has(normalizedHref)) {
+            const tocTitle = this.cleanTitle(tocMap.get(normalizedHref));
+            if (tocTitle) return tocTitle;
+        }
+        
+        // Also try matching just the filename
+        const filename = normalizedHref.split('/').pop();
+        for (const [tocHref, tocTitle] of tocMap.entries()) {
+            if (tocHref.endsWith(filename) || filename.endsWith(tocHref.split('/').pop())) {
+                const title = this.cleanTitle(tocTitle);
+                if (title) return title;
+            }
+        }
+        
+        // 3. Try h2 tag
+        const h2 = doc.querySelector('h2');
+        if (h2) {
+            const title = this.cleanTitle(h2.textContent);
+            if (title) return title;
+        }
+        
+        // 4. Use first 4 words + "..."
+        if (words && words.length >= 4) {
+            return words.slice(0, 4).join(' ') + '...';
+        }
+        
+        // 5. Fallback to "Chapter X"
+        return `Chapter ${chapterNum}`;
+    },
+
+    /**
+     * Clean and validate title text
+     */
+    cleanTitle(text) {
+        if (!text) return '';
+        
+        // Remove extra whitespace
+        let cleaned = text.replace(/\s+/g, ' ').trim();
+        
+        // Remove common junk characters
+        cleaned = cleaned.replace(/^[\s\-–—]+|[\s\-–—]+$/g, '');
+        
+        // Must be at least 2 characters and not just whitespace/punctuation
+        if (cleaned.length < 2 || /^[\s\p{P}]+$/u.test(cleaned)) {
+            return '';
+        }
+        
+        return cleaned;
     },
 
     /**
@@ -357,11 +456,10 @@ const EpubParser = {
         }
         
         const chapter = book.chapters[chapterIndex];
-        const tocEntry = book.toc[chapterIndex];
         
         return {
             ...chapter,
-            title: tocEntry?.title || chapter.title || `Chapter ${chapterIndex + 1}`,
+            title: chapter.title || `Chapter ${chapterIndex + 1}`,
             index: chapterIndex,
             totalChapters: book.chapters.length
         };
