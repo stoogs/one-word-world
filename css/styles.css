@@ -879,6 +879,86 @@ body {
 }
 
 /* ========================================
+   Zen Mode
+   ======================================== */
+
+/* Transition wrapper for smooth fade */
+body.zen-mode-transition {
+    transition: all 0.3s ease;
+}
+
+/* Zen mode - hide all UI except spritz word */
+.zen-mode .sidebar,
+.zen-mode .top-bar,
+.zen-mode .chapter-toggle,
+.zen-mode .chapter-panel,
+.zen-mode .progress-container {
+    opacity: 0;
+    pointer-events: none;
+    height: 0;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    transition: opacity 0.3s ease;
+}
+
+/* Zen mode main content takes full screen */
+.zen-mode .main-content {
+    width: 100vw;
+    height: 100vh;
+    margin: 0;
+    padding: 0;
+}
+
+.zen-mode .app-container {
+    display: block;
+}
+
+/* Zen mode reader container - flexbox centering */
+.zen-mode .reader-container {
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+}
+
+/* Zen mode spritz container */
+.zen-mode .spritz-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    max-width: 90vw;
+    padding: 0;
+}
+
+/* Zen mode focus container centered */
+.zen-mode .spritz-focus {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 0;
+    margin: 0;
+    position: relative;
+}
+
+/* Zen mode spritz word */
+.zen-mode .spritz-word {
+    display: flex;
+    margin: 0;
+    opacity: 1;
+    padding: 0;
+}
+
+/* Hide focus point in zen mode to avoid pushing content */
+.zen-mode .focus-point {
+    display: none;
+}
+
+/* ========================================
    Utility Classes
    ======================================== */
 .hidden {

@@ -12,6 +12,7 @@ const UIController = {
     chapterPanelOpen: true,
     expandedBookId: null, // Track which book is expanded in sidebar
     expandedSections: new Set(), // Track expanded sections by ID
+    isZenMode: false, // Track zen mode state
 
     /**
      * Initialize UI controller
@@ -845,7 +846,7 @@ if (!saved) {
      * Adjust font size for Spritz word
      */
     adjustFontSize(delta) {
-        const currentSize = parseInt(this.elements.fontSizeValue.textContent) || 48;
+        const currentSize = parseInt(this.elements.fontSizeValue.textContent) || 96;
         const newSize = currentSize + delta;
         const clampedSize = Math.max(32, Math.min(240, newSize));
         
@@ -905,6 +906,76 @@ if (!saved) {
                 event.preventDefault();
                 this.adjustWPM(-10);
                 break;
+            case 'KeyZ':
+                event.preventDefault();
+                this.toggleZenMode();
+                break;
+            case 'Escape':
+                if (this.isZenMode) {
+                    event.preventDefault();
+                    this.exitZenMode();
+                }
+                break;
+        }
+    },
+
+    /**
+     * Enter zen mode - distraction-free reading
+     */
+    enterZenMode() {
+        if (this.isZenMode) return;
+
+        console.log('[ZEN MODE] Entering zen mode...');
+
+        // Instant switch - no delay, no pause
+        document.body.classList.add('zen-mode');
+        this.isZenMode = true;
+
+        // Request fullscreen immediately
+        if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen().catch(err => {
+                console.log('[ZEN MODE] Fullscreen request failed:', err);
+            });
+        }
+
+        console.log('[ZEN MODE] Zen mode active');
+    },
+
+    /**
+     * Exit zen mode - return to normal view
+     */
+    exitZenMode() {
+        if (!this.isZenMode) return;
+        
+        console.log('[ZEN MODE] Exiting zen mode...');
+        
+        // Remove zen mode class
+        document.body.classList.remove('zen-mode');
+        
+        // Exit fullscreen
+        if (document.fullscreenElement) {
+            document.exitFullscreen().catch(err => {
+                console.log('[ZEN MODE] Exit fullscreen failed:', err);
+            });
+        }
+        
+        // Clean up transition class after animation
+        setTimeout(() => {
+            document.body.classList.remove('zen-mode-transition');
+        }, 300);
+        
+        this.isZenMode = false;
+        console.log('[ZEN MODE] Returned to normal mode');
+    },
+
+    /**
+     * Toggle zen mode on/off
+     */
+    toggleZenMode() {
+        if (this.isZenMode) {
+            this.exitZenMode();
+        } else {
+            this.enterZenMode();
         }
     },
 
