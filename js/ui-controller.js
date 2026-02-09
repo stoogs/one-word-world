@@ -195,8 +195,9 @@ const UIController = {
         
         // Save progress before removing
         if (this.currentChapter) {
-            const progress = SpritzEngine.getProgress ? SpritzEngine.getProgress() : { wordIndex: 0 };
-            StorageManager.saveProgress(this.currentBook.id, this.currentChapter.index, progress.wordIndex || 0);
+            const position = SpritzEngine.getPosition ? SpritzEngine.getPosition() : { index: 0 };
+            console.log(`[UNLOAD] Saving final progress - Chapter: ${this.currentChapter.index}, Word: ${position.index}`);
+            StorageManager.saveProgress(this.currentBook.id, this.currentChapter.index, position.index || 0);
         }
         
         // Remove book from storage (this frees up space)
@@ -464,13 +465,19 @@ const UIController = {
      * Load a book into the reader
      */
     loadBook(bookId) {
+        console.log(`[LOAD BOOK] Starting load for book ID: ${bookId}`);
+        
         // Get book data (from memory or storage)
         let book = this.currentBook && this.currentBook.id === bookId 
             ? this.currentBook 
             : StorageManager.getBook(bookId);
         
-        if (!book) return;
+        if (!book) {
+            console.log(`[LOAD BOOK] Book not found: ${bookId}`);
+            return;
+        }
         
+        console.log(`[LOAD BOOK] Book found: "${book.title}"`);
         this.currentBook = book;
         
         // Update book info
@@ -480,8 +487,11 @@ const UIController = {
         
         // Check for saved progress
         const progress = StorageManager.getProgress(bookId);
+        console.log(`[LOAD BOOK] Progress check result:`, progress);
         const chapterIndex = progress ? progress.chapterIndex : 0;
         const wordIndex = progress ? progress.wordIndex : 0;
+        
+        console.log(`[LOAD BOOK] Loading chapter ${chapterIndex} at word ${wordIndex}`);
         
         // Save as last loaded book
         StorageManager.saveSettings({ lastLoadedBookId: bookId });
@@ -529,18 +539,23 @@ const UIController = {
         if (anchor) {
             // Find word position for this anchor
             wordIndex = this.findWordIndexForAnchor(chapter, anchor);
-            console.log(`Anchor "${anchor}" found at word index ${wordIndex}`);
+            console.log(`[LOAD CHAPTER] Anchor "${anchor}" found at word index ${wordIndex}`);
         } else {
             // Use saved progress or start from beginning
             const progress = StorageManager.getProgress(bookId);
+            console.log(`[LOAD CHAPTER] Checking progress for chapter ${chapterIndex}:`, progress);
             if (progress && progress.chapterIndex === chapterIndex) {
                 wordIndex = progress.wordIndex;
+                console.log(`[LOAD CHAPTER] Restoring saved word position: ${wordIndex}`);
+            } else {
+                console.log(`[LOAD CHAPTER] No saved progress for this chapter, starting from word 0`);
             }
         }
         
         // Ensure wordIndex is valid
         wordIndex = Math.max(0, Math.min(wordIndex, chapter.words.length - 1));
         
+        console.log(`[LOAD CHAPTER] Loading ${chapter.words.length} words starting at index ${wordIndex}`);
         SpritzEngine.loadWords(chapter.words, wordIndex);
         
         // Update active chapter in sidebar

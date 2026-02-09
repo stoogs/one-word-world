@@ -99,7 +99,11 @@ const StorageManager = {
         try {
             const data = localStorage.getItem(this.KEYS.PROGRESS);
             const progress = data ? JSON.parse(data) : {};
-            return bookId ? (progress[bookId] || null) : progress;
+            const result = bookId ? (progress[bookId] || null) : progress;
+            if (bookId) {
+                console.log(`[PROGRESS GET] Book: ${bookId}, Found: ${result ? `Chapter ${result.chapterIndex}, Word ${result.wordIndex}` : 'NONE'}`);
+            }
+            return result;
         } catch (e) {
             console.error('Failed to load progress:', e);
             return bookId ? null : {};
@@ -118,6 +122,7 @@ const StorageManager = {
                 lastRead: Date.now()
             };
             localStorage.setItem(this.KEYS.PROGRESS, JSON.stringify(progress));
+            console.log(`[PROGRESS SAVE] Book: ${bookId}, Chapter: ${chapterIndex}, Word: ${wordIndex}`);
             return true;
         } catch (e) {
             console.error('Failed to save progress:', e);

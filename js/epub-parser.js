@@ -67,8 +67,10 @@ const EpubParser = {
                 zip, opfData.spine, opfData.manifest, basePath, tocTree
             );
             
-            // Generate unique ID
-            const id = this.generateId(file.name);
+            // Generate consistent ID based on title + author
+            const title = opfData.metadata.title || 'Untitled';
+            const author = opfData.metadata.creator || 'Unknown Author';
+            const id = this.generateId(title, author);
             
             return {
                 id,
@@ -510,10 +512,23 @@ const EpubParser = {
     },
 
     /**
-     * Generate unique ID for book
+     * Generate consistent ID for book based on title + author
+     * This allows progress to be restored when re-uploading the same book
      */
-    generateId(fileName) {
-        return 'book-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+    generateId(title, author) {
+        // Create a simple hash from title + author
+        const str = (title + '|' + author).toLowerCase().trim();
+        let hash = 0;
+        for (let i = 0; i < str.length; i++) {
+            const char = str.charCodeAt(i);
+            hash = ((hash << 5) - hash) + char;
+            hash = hash & hash; // Convert to 32bit integer
+        }
+        // Convert to positive base36 string
+        const hashStr = Math.abs(hash).toString(36);
+        const id = 'book-' + hashStr;
+        console.log(`[ID] Generated ID: ${id} for "${title}" by "${author}"`);
+        return id;
     },
 
     /**

@@ -103,11 +103,14 @@ function saveCurrentProgress() {
     const position = SpritzEngine.getPosition();
     
     if (book && chapter) {
+        console.log(`[AUTO-SAVE] Saving progress - Book: ${book.id}, Chapter: ${chapter.index}, Word: ${position.index}`);
         StorageManager.saveProgress(
             book.id,
             chapter.index,
             position.index
         );
+    } else {
+        console.log(`[AUTO-SAVE] Skipped - No active book/chapter`);
     }
 }
 
