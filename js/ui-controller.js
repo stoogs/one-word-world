@@ -118,7 +118,9 @@ const UIController = {
         if (chapterItem) {
             const bookId = chapterItem.dataset.bookId;
             const chapterIndex = parseInt(chapterItem.dataset.chapterIndex);
-            this.loadChapter(bookId, chapterIndex);
+            const anchor = chapterItem.dataset.anchor || '';
+            const tocTitle = chapterItem.dataset.tocTitle || '';
+            this.loadChapter(bookId, chapterIndex, anchor, tocTitle);
             return;
         }
         
@@ -251,7 +253,7 @@ const UIController = {
     /**
      * Render TOC tree recursively
      */
-    renderTOCTree(items, bookId, chapters) {
+    renderTOCTree(items, bookId, chapters, renderedEntries = new Set()) {
         if (!items || items.length === 0) return '';
         
         // Debug logging
@@ -272,7 +274,7 @@ const UIController = {
                             <span class="section-title">${this.escapeHtml(item.title || 'Section')}</span>
                         </div>
                         <div class="section-children">
-                            ${this.renderTOCTree(item.children, bookId, chapters)}
+                            ${this.renderTOCTree(item.children, bookId, chapters, renderedEntries)}
                         </div>
                     </div>
                 `;
@@ -285,14 +287,31 @@ const UIController = {
                     return '';
                 }
                 
+                // Extract anchor from href (e.g., "file.html#section1" -> "section1")
+                const anchor = item.href ? item.href.split('#')[1] || '' : '';
+                const tocTitle = item.title || chapters[chapterIndex].title || '';
+                
+                // Track rendered chapters by chapterIndex + title combo to allow multiple sections per file
+                const entryKey = `${chapterIndex}:${tocTitle}`;
+                if (renderedEntries.has(entryKey)) {
+                    // Already rendered this exact entry, skip
+                    return '';
+                }
+                renderedEntries.add(entryKey);
+                
                 const chapter = chapters[chapterIndex];
-                const title = chapter.displayNumber + (chapter.title ? ': ' + chapter.title : '');
+                // Smart title formatting: if TOC title already has chapter numbering, use it directly
+                // Otherwise prefix with sequential display number
+                const hasChapterNumber = /^\s*(chapter|ch\.?|part|section|book)\s*\d+/i.test(tocTitle);
+                const title = hasChapterNumber ? tocTitle : (chapter.displayNumber + (tocTitle ? ': ' + tocTitle : ''));
                 const preview = chapter.preview || '';
                 
                 return `
                     <div class="chapter-item" 
                          data-book-id="${bookId}" 
-                         data-chapter-index="${chapterIndex}">
+                         data-chapter-index="${chapterIndex}"
+                         data-anchor="${anchor}"
+                         data-toc-title="${this.escapeHtml(tocTitle)}">
                         <div class="chapter-title">${this.escapeHtml(title)}</div>
                         ${preview ? `<div class="chapter-preview">${this.escapeHtml(preview)}</div>` : ''}
                     </div>
@@ -371,8 +390,12 @@ const UIController = {
 
     /**
      * Load a chapter
+     * @param {string} bookId - Book ID
+     * @param {number} chapterIndex - Chapter index
+     * @param {string} anchor - Optional anchor/fragment to jump to within chapter
+     * @param {string} tocTitle - Optional TOC title override
      */
-    loadChapter(bookId, chapterIndex) {
+    loadChapter(bookId, chapterIndex, anchor = '', tocTitle = '') {
         if (!this.currentBook) return;
         
         const chapter = EpubParser.getChapter(this.currentBook, chapterIndex);
@@ -380,8 +403,11 @@ const UIController = {
         
         this.currentChapter = chapter;
         
-        // Update chapter header with both title and preview
-        const title = chapter.displayNumber + (chapter.title ? ': ' + chapter.title : '');
+        // Use tocTitle if provided, otherwise fall back to chapter title
+        const displayTitle = tocTitle || chapter.title || '';
+        // Smart title formatting: if title already has chapter numbering, use it directly
+        const hasChapterNumber = /^\s*(chapter|ch\.?|part|section|book)\s*\d+/i.test(displayTitle);
+        const title = hasChapterNumber ? displayTitle : (chapter.displayNumber + (displayTitle ? ': ' + displayTitle : ''));
         const preview = chapter.preview || '';
         
         this.elements.chapterTitle.innerHTML = `
@@ -392,22 +418,94 @@ const UIController = {
         // Render chapter content
         this.renderChapterContent(chapter);
         
-        // Load words into Spritz engine
-        const progress = StorageManager.getProgress(bookId);
-        const wordIndex = (progress && progress.chapterIndex === chapterIndex) 
-            ? progress.wordIndex 
-            : 0;
+        // Calculate starting word position
+        let wordIndex = 0;
+        
+        if (anchor) {
+            // Find word position for this anchor
+            wordIndex = this.findWordIndexForAnchor(chapter, anchor);
+            console.log(`Anchor "${anchor}" found at word index ${wordIndex}`);
+        } else {
+            // Use saved progress or start from beginning
+            const progress = StorageManager.getProgress(bookId);
+            if (progress && progress.chapterIndex === chapterIndex) {
+                wordIndex = progress.wordIndex;
+            }
+        }
+        
+        // Ensure wordIndex is valid
+        wordIndex = Math.max(0, Math.min(wordIndex, chapter.words.length - 1));
         
         SpritzEngine.loadWords(chapter.words, wordIndex);
         
         // Update active chapter in sidebar
-        this.highlightActiveChapter(bookId, chapterIndex);
+        this.highlightActiveChapter(bookId, chapterIndex, anchor);
         
         // Expand sections containing this chapter
         this.expandSectionsForChapter(bookId, chapterIndex);
         
         // Save progress
         StorageManager.saveProgress(bookId, chapterIndex, wordIndex);
+    },
+
+    /**
+     * Find the word index for a given anchor within chapter content
+     * @param {Object} chapter - Chapter object with content and words
+     * @param {string} anchor - Anchor ID to find
+     * @returns {number} Word index where anchor appears
+     */
+    findWordIndexForAnchor(chapter, anchor) {
+        if (!chapter.content || !anchor) return 0;
+        
+        try {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(chapter.content, 'text/html');
+            
+            // Find element with this anchor ID
+            const element = doc.getElementById(anchor) || 
+                           doc.querySelector(`[name="${anchor}"]`) ||
+                           doc.querySelector(`a[name="${anchor}"]`);
+            
+            if (!element) {
+                console.log(`Anchor "${anchor}" not found in chapter`);
+                return 0;
+            }
+            
+            // Get all text content up to this element
+            const walker = document.createTreeWalker(
+                doc.body,
+                NodeFilter.SHOW_TEXT,
+                null,
+                false
+            );
+            
+            let textBeforeAnchor = '';
+            let foundAnchor = false;
+            
+            while (walker.nextNode() && !foundAnchor) {
+                const node = walker.currentNode;
+                // Check if this node is before or inside our anchor element
+                if (element.contains(node) || element.compareDocumentPosition(node) & Node.DOCUMENT_POSITION_PRECEDING) {
+                    textBeforeAnchor += node.textContent;
+                }
+                if (element.contains(node)) {
+                    foundAnchor = true;
+                }
+            }
+            
+            // Count words before anchor
+            const wordsBefore = textBeforeAnchor
+                .replace(/\s+/g, ' ')
+                .trim()
+                .split(/\s+/)
+                .filter(w => w.length > 0)
+                .length;
+            
+            return Math.min(wordsBefore, chapter.words.length - 1);
+        } catch (e) {
+            console.error('Error finding anchor:', e);
+            return 0;
+        }
     },
 
     /**
@@ -631,8 +729,11 @@ const UIController = {
 
     /**
      * Highlight active chapter in sidebar
+     * @param {string} bookId - Book ID
+     * @param {number} chapterIndex - Chapter index
+     * @param {string} anchor - Optional anchor to match specific section
      */
-    highlightActiveChapter(bookId, chapterIndex) {
+    highlightActiveChapter(bookId, chapterIndex, anchor = '') {
         const container = this.elements.libraryContainer;
         
         // Remove all active classes
@@ -640,13 +741,30 @@ const UIController = {
             c.classList.remove('active', 'reading');
         });
         
-        // Add active to current
-        const activeChapter = container.querySelector(
+        // Find matching chapter items
+        const matchingItems = container.querySelectorAll(
             `.chapter-item[data-book-id="${bookId}"][data-chapter-index="${chapterIndex}"]`
         );
-        if (activeChapter) {
-            activeChapter.classList.add('active', 'reading');
+        
+        if (matchingItems.length === 0) return;
+        
+        // If anchor provided, try to find exact match
+        if (anchor) {
+            const exactMatch = Array.from(matchingItems).find(item => 
+                item.dataset.anchor === anchor
+            );
+            if (exactMatch) {
+                exactMatch.classList.add('active', 'reading');
+                return;
+            }
         }
+        
+        // Otherwise, highlight first match or all matches if multiple sections in same chapter
+        matchingItems.forEach((item, index) => {
+            if (index === 0 || anchor) {
+                item.classList.add('active', 'reading');
+            }
+        });
     },
 
     /**
