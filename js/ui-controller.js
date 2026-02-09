@@ -847,7 +847,7 @@ if (!saved) {
     adjustFontSize(delta) {
         const currentSize = parseInt(this.elements.fontSizeValue.textContent) || 48;
         const newSize = currentSize + delta;
-        const clampedSize = Math.max(32, Math.min(80, newSize));
+        const clampedSize = Math.max(32, Math.min(240, newSize));
         
         this.elements.fontSizeValue.textContent = clampedSize;
         
