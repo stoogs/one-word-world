@@ -98,12 +98,22 @@ const UIController = {
         
         // Theme toggle
         e.themeToggle.addEventListener('click', () => {
-            ThemeManager.toggle();
+            const newTheme = ThemeManager.toggle();
+            // Always reset text color to theme default
+            this.applyThemeTextColor(newTheme);
         });
 
         // Color pickers
         e.orpColorPicker.addEventListener('input', (event) => this.changeORPColor(event.target.value));
         e.textColorPicker.addEventListener('input', (event) => this.changeTextColor(event.target.value));
+        
+        // Text color picker click - always set theme default
+        e.textColorPicker.addEventListener('click', () => {
+            const isDark = ThemeManager.isDark();
+            const defaultColor = isDark ? '#deddda' : '#241f31';
+            this.elements.textColorPicker.value = defaultColor;
+            this.changeTextColor(defaultColor);
+        });
 
         // Font size controls
         e.fontSizeMinus.addEventListener('click', () => this.adjustFontSize(-4));
@@ -268,8 +278,11 @@ const UIController = {
 
         // Load and apply saved colors
         const savedORPColor = settings.orpColor || '#1c71d8';
-        const savedTextColor = settings.textColor || '#deddda';
         this.elements.orpColorPicker.value = savedORPColor;
+        
+        // Apply theme-appropriate text color
+        const currentTheme = ThemeManager.getCurrent();
+        const savedTextColor = currentTheme === 'dark' ? '#deddda' : '#241f31';
         this.elements.textColorPicker.value = savedTextColor;
         this.applyColors(savedORPColor, savedTextColor);
 
@@ -295,7 +308,15 @@ const UIController = {
     changeTextColor(color) {
         // Apply color directly to word side elements
         this.applyTextColor(color);
-        StorageManager.saveSettings({ textColor: color });
+    },
+
+    /**
+     * Apply theme-appropriate text color
+     */
+    applyThemeTextColor(theme) {
+        const defaultColor = theme === 'dark' ? '#deddda' : '#241f31';
+        this.elements.textColorPicker.value = defaultColor;
+        this.applyTextColor(defaultColor);
     },
 
     /**

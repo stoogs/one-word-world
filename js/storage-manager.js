@@ -141,14 +141,13 @@ const StorageManager = {
                 wpm: 300,
                 fontSize: 96,
                 orpColor: '#1c71d8',
-                textColor: '#deddda',
                 chapterPanelOpen: true,
                 lastLoadedBookId: null
             };
             return data ? { ...defaults, ...JSON.parse(data) } : defaults;
         } catch (e) {
             console.error('Failed to load settings:', e);
-            return { theme: 'dark', wpm: 300, fontSize: 96, orpColor: '#1c71d8', textColor: '#deddda', chapterPanelOpen: true, lastLoadedBookId: null };
+            return { theme: 'dark', wpm: 300, fontSize: 96, orpColor: '#1c71d8', chapterPanelOpen: true, lastLoadedBookId: null };
         }
     },
 
