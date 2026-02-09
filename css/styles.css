@@ -696,11 +696,17 @@ body {
     font-weight: 500;
     margin: 16px 0;
     transition: all 0.2s ease;
+    position: relative;
+    z-index: 10;
 }
 
 .chapter-toggle:hover {
     background: var(--bg-hover);
     color: var(--text-primary);
+}
+
+.chapter-toggle span {
+    pointer-events: none;
 }
 
 .chapter-toggle .toggle-icon {
