@@ -108,15 +108,6 @@ const UIController = {
      * Handle clicks in library container (event delegation)
      */
     handleLibraryClick(event) {
-        // Handle delete button
-        const deleteBtn = event.target.closest('.delete-book');
-        if (deleteBtn) {
-            event.stopPropagation();
-            const bookId = deleteBtn.dataset.bookId;
-            this.deleteBook(bookId);
-            return;
-        }
-        
         // Handle section toggle
         const sectionHeader = event.target.closest('.section-header');
         if (sectionHeader) {
@@ -190,14 +181,26 @@ const UIController = {
     },
 
     /**
-     * Unload current book from reader
+     * Unload and remove current book from storage
      */
     unloadBook() {
-        // Save progress before unloading
-        if (this.currentBook && this.currentChapter) {
+        if (!this.currentBook) return;
+        
+        const bookTitle = this.currentBook.title || 'Untitled';
+        
+        // Show confirmation dialog
+        if (!confirm(`Remove "${bookTitle}" from storage?\n\nProgress will be saved. You can re-upload the EPUB file later to resume reading.`)) {
+            return;
+        }
+        
+        // Save progress before removing
+        if (this.currentChapter) {
             const progress = SpritzEngine.getProgress ? SpritzEngine.getProgress() : { wordIndex: 0 };
             StorageManager.saveProgress(this.currentBook.id, this.currentChapter.index, progress.wordIndex || 0);
         }
+        
+        // Remove book from storage (this frees up space)
+        StorageManager.removeBook(this.currentBook.id);
         
         // Clear from memory
         this.currentBook = null;
@@ -217,7 +220,7 @@ const UIController = {
         // Re-render library to update buttons
         this.renderLibrary();
         
-        console.log('Book unloaded');
+        console.log(`Book "${bookTitle}" removed from storage`);
     },
 
     /**
@@ -260,7 +263,7 @@ const UIController = {
             
             if (!saved) {
                 console.error('Storage limit reached');
-                alert('Unable to save book - storage limit reached (10MB). Try removing some books first.');
+                alert('Browser limited to 1 active book at a time (~10MB storage limit).\n\nPlease remove (unload) the current book first, then upload the new one.\n\nYour reading progress will be saved and you can resume later.');
                 return;
             }
             
@@ -315,10 +318,10 @@ const UIController = {
             ? `<img src="${book.cover}" alt="Cover">`
             : '📖';
         
-        // Show load or unload button based on state
+        // Show load or remove button based on state
         const loadButton = isLoaded 
-            ? `<button class="unload-book-btn" data-book-id="${book.id}" title="Unload book">✕</button>`
-            : `<button class="load-book-btn" data-book-id="${book.id}" title="Load book">📖</button>`;
+            ? `<button class="unload-book-btn" data-book-id="${book.id}" title="Remove book from storage">Remove</button>`
+            : `<button class="load-book-btn" data-book-id="${book.id}" title="Load book">Load</button>`;
         
         // Render hierarchical TOC only if expanded
         const tocHtml = isExpanded && book.toc && book.toc.length > 0
@@ -336,7 +339,6 @@ const UIController = {
                     </div>
                     <div class="book-actions">
                         ${loadButton}
-                        <button class="delete-book" data-book-id="${book.id}" title="Remove book">🗑️</button>
                     </div>
                 </div>
                 <div class="toc-tree">
@@ -868,24 +870,6 @@ const UIController = {
                 item.classList.add('active', 'reading');
             }
         });
-    },
-
-    /**
-     * Delete a book
-     */
-    deleteBook(bookId) {
-        if (!confirm('Remove this book from your library?')) return;
-        
-        StorageManager.removeBook(bookId);
-        
-        if (this.currentBook && this.currentBook.id === bookId) {
-            this.currentBook = null;
-            this.currentChapter = null;
-            SpritzEngine.pause();
-            this.resetReader();
-        }
-        
-        this.renderLibrary();
     },
 
     /**
