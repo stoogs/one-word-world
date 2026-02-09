@@ -48,6 +48,9 @@ const UIController = {
             // Top bar
             bookInfo: document.getElementById('bookInfo'),
             themeToggle: document.getElementById('themeToggle'),
+            fontSizeMinus: document.getElementById('fontSizeMinus'),
+            fontSizePlus: document.getElementById('fontSizePlus'),
+            fontSizeValue: document.getElementById('fontSizeValue'),
             wpmMinus: document.getElementById('wpmMinus'),
             wpmPlus: document.getElementById('wpmPlus'),
             wpmValue: document.getElementById('wpmValue'),
@@ -86,6 +89,10 @@ const UIController = {
         e.themeToggle.addEventListener('click', () => {
             ThemeManager.toggle();
         });
+        
+        // Font size controls
+        e.fontSizeMinus.addEventListener('click', () => this.adjustFontSize(-4));
+        e.fontSizePlus.addEventListener('click', () => this.adjustFontSize(4));
         
         // WPM controls
         e.wpmMinus.addEventListener('click', () => this.adjustWPM(-10));
@@ -230,12 +237,20 @@ const UIController = {
     loadSettings() {
         const settings = StorageManager.getSettings();
         this.chapterPanelOpen = settings.chapterPanelOpen !== false;
-        
+
         // Update WPM display and engine
         const savedWPM = settings.wpm || 300;
         this.elements.wpmValue.textContent = savedWPM;
         SpritzEngine.setWPM(savedWPM);
-        
+
+        // Update font size display and apply
+        const savedFontSize = settings.fontSize || 48;
+        this.elements.fontSizeValue.textContent = savedFontSize;
+        const spritzWord = document.getElementById('spritzWord');
+        if (spritzWord) {
+            spritzWord.style.fontSize = savedFontSize + 'px';
+        }
+
         // Apply chapter panel state
         if (this.chapterPanelOpen) {
             this.elements.chapterPanel.classList.add('expanded');
@@ -827,6 +842,26 @@ if (!saved) {
     },
 
     /**
+     * Adjust font size for Spritz word
+     */
+    adjustFontSize(delta) {
+        const currentSize = parseInt(this.elements.fontSizeValue.textContent) || 48;
+        const newSize = currentSize + delta;
+        const clampedSize = Math.max(32, Math.min(80, newSize));
+        
+        this.elements.fontSizeValue.textContent = clampedSize;
+        
+        // Apply font size to spritz word display
+        const spritzWord = document.getElementById('spritzWord');
+        if (spritzWord) {
+            spritzWord.style.fontSize = clampedSize + 'px';
+        }
+        
+        // Save font size setting for next session
+        StorageManager.saveSettings({ fontSize: clampedSize });
+    },
+
+    /**
      * Handle keyboard shortcuts
      */
     handleKeydown(event) {
@@ -855,10 +890,8 @@ if (!saved) {
                 this.adjustWPM(-10);
                 break;
             case 'Equal':
-                if (event.shiftKey) {
-                    event.preventDefault();
-                    this.adjustWPM(10);
-                }
+                event.preventDefault();
+                this.adjustWPM(10);
                 break;
             case 'Minus':
                 event.preventDefault();

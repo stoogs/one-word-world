@@ -139,6 +139,7 @@ const StorageManager = {
             const defaults = {
                 theme: 'dark',
                 wpm: 300,
+                fontSize: 48,
                 chapterPanelOpen: true,
                 lastLoadedBookId: null
             };
