@@ -29,7 +29,7 @@
     --bg-secondary: #f6f8fa;
     --bg-tertiary: #eaeef2;
     --bg-hover: #d0d7de;
-    --text-primary: #24292f;
+    --text-primary: #000000;
     --text-secondary: #57606a;
     --text-muted: #8c959f;
     --accent: #0969da;
@@ -641,20 +641,6 @@ body {
     font-weight: 600;
 }
 
-/* Focus Point Marker */
-.focus-point {
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    transform: translate(-50%, -50%);
-    width: 8px;
-    height: 4px;
-    background: var(--orp);
-    border-radius: 2px;
-    opacity: 0.5;
-    pointer-events: none;
-}
-
 /* New Chapter Indicator */
 .spritz-word.new-chapter .word-center {
     color: var(--highlight);
@@ -957,11 +943,6 @@ body.zen-mode-transition {
     margin: 0;
     opacity: 1;
     padding: 0;
-}
-
-/* Hide focus point in zen mode to avoid pushing content */
-.zen-mode .focus-point {
-    display: none;
 }
 
 /* ========================================
