@@ -231,8 +231,10 @@ const UIController = {
         const settings = StorageManager.getSettings();
         this.chapterPanelOpen = settings.chapterPanelOpen !== false;
         
-        // Update WPM display
-        this.elements.wpmValue.textContent = settings.wpm || 300;
+        // Update WPM display and engine
+        const savedWPM = settings.wpm || 300;
+        this.elements.wpmValue.textContent = savedWPM;
+        SpritzEngine.setWPM(savedWPM);
         
         // Apply chapter panel state
         if (this.chapterPanelOpen) {
@@ -262,9 +264,9 @@ const UIController = {
             // Save book (10MB limit)
             const saved = StorageManager.addBook(bookData);
             
-            if (!saved) {
+if (!saved) {
                 console.error('Storage limit reached');
-                alert('Browser limited to 1 active book at a time (~10MB storage limit).\n\nPlease remove (unload) the current book first, then upload the new one.\n\nYour reading progress will be saved and you can resume later.');
+                alert('Browser limited to 1 active book at a time (~1MB storage limit).\n\nPlease remove (unload) current book first, then upload the new one.\n\nYour reading progress will be saved and you can resume later.');
                 return;
             }
             
@@ -792,14 +794,19 @@ const UIController = {
     toggleChapterPanel() {
         this.chapterPanelOpen = !this.chapterPanelOpen;
         
+        const textSpan = this.elements.chapterToggle.querySelector('span');
+        const iconSpan = this.elements.chapterToggle.querySelector('.toggle-icon');
+        
         if (this.chapterPanelOpen) {
             this.elements.chapterPanel.classList.add('expanded');
             this.elements.chapterToggle.classList.add('expanded');
-            this.elements.chapterToggle.querySelector('span').textContent = 'Hide Chapter Text';
+            textSpan.textContent = 'Hide Chapter Text';
+            iconSpan.textContent = '▲';
         } else {
             this.elements.chapterPanel.classList.remove('expanded');
             this.elements.chapterToggle.classList.remove('expanded');
-            this.elements.chapterToggle.querySelector('span').textContent = 'Show Chapter Text';
+            textSpan.textContent = 'Show Chapter Text';
+            iconSpan.textContent = '▲';
         }
         
         StorageManager.saveSettings({ chapterPanelOpen: this.chapterPanelOpen });
@@ -814,6 +821,9 @@ const UIController = {
         
         SpritzEngine.setWPM(clampedWPM);
         this.elements.wpmValue.textContent = clampedWPM;
+        
+        // Save WPM setting for next session
+        StorageManager.saveSettings({ wpm: clampedWPM });
     },
 
     /**
@@ -841,6 +851,24 @@ const UIController = {
                 this.adjustWPM(10);
                 break;
             case 'ArrowDown':
+                event.preventDefault();
+                this.adjustWPM(-10);
+                break;
+            case 'Equal':
+                if (event.shiftKey) {
+                    event.preventDefault();
+                    this.adjustWPM(10);
+                }
+                break;
+            case 'Minus':
+                event.preventDefault();
+                this.adjustWPM(-10);
+                break;
+            case 'NumpadAdd':
+                event.preventDefault();
+                this.adjustWPM(10);
+                break;
+            case 'NumpadSubtract':
                 event.preventDefault();
                 this.adjustWPM(-10);
                 break;

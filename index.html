@@ -25,7 +25,7 @@
             <div class="sidebar-footer">
                 <div class="storage-info">
                     <strong>Browser Storage Limit</strong>
-                    Only 1 active book at a time (~10MB limit). Remove current book before uploading a new one.
+                    Only 1 active book at a time (~1MB limit). Remove current book before uploading a new one.
                 </div>
                 <label for="epubUpload" class="upload-btn">
                     <span>+ Upload EPUB</span>
@@ -79,13 +79,13 @@
                 </div>
 
                 <!-- Chapter Toggle -->
-                <button class="chapter-toggle" id="chapterToggle">
-                    <span>Show Chapter Text</span>
-                    <span class="toggle-icon">▼</span>
+                <button class="chapter-toggle expanded" id="chapterToggle">
+                    <span>Hide Chapter Text</span>
+                    <span class="toggle-icon">▲</span>
                 </button>
 
                 <!-- Chapter Text Panel -->
-                <div class="chapter-panel" id="chapterPanel">
+                <div class="chapter-panel expanded" id="chapterPanel">
                     <div class="chapter-content" id="chapterContent">
                         <p class="placeholder-text">Chapter text will appear here...</p>
                     </div>
