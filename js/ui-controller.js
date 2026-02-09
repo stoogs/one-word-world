@@ -979,6 +979,10 @@ if (!saved) {
                 event.preventDefault();
                 this.toggleZenMode();
                 break;
+            case 'KeyF':
+                event.preventDefault();
+                this.toggleZenMode();
+                break;
             case 'Escape':
                 if (this.isZenMode) {
                     event.preventDefault();
