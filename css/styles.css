@@ -25,9 +25,9 @@
 }
 
 .light-theme {
-    --bg-primary: #ffffff;
-    --bg-secondary: #f6f8fa;
-    --bg-tertiary: #eaeef2;
+    --bg-primary: #f5f2e8;
+    --bg-secondary: #ebe7d9;
+    --bg-tertiary: #e0dbc9;
     --bg-hover: #d0d7de;
     --text-primary: #000000;
     --text-secondary: #57606a;

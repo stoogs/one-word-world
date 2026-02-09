@@ -259,7 +259,7 @@ const UIController = {
         SpritzEngine.setWPM(savedWPM);
 
         // Update font size display and apply
-        const savedFontSize = settings.fontSize || 48;
+        const savedFontSize = settings.fontSize || 96;
         this.elements.fontSizeValue.textContent = savedFontSize;
         const spritzWord = document.getElementById('spritzWord');
         if (spritzWord) {
