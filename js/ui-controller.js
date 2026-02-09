@@ -284,7 +284,8 @@ const UIController = {
      * Change ORP (middle letter) color
      */
     changeORPColor(color) {
-        document.documentElement.style.setProperty('--orp', color);
+        // Set on body to override theme-specific values
+        document.body.style.setProperty('--orp', color);
         StorageManager.saveSettings({ orpColor: color });
     },
 
@@ -313,8 +314,9 @@ const UIController = {
      * Apply both colors
      */
     applyColors(orpColor, textColor) {
-        // Apply ORP color (middle letter) via CSS variable
-        document.documentElement.style.setProperty('--orp', orpColor);
+        // Apply ORP color (middle letter) via CSS variable on body
+        // This overrides theme-specific values since body has higher specificity
+        document.body.style.setProperty('--orp', orpColor);
 
         // Apply text color (side letters) directly to elements
         this.applyTextColor(textColor);
