@@ -42,6 +42,7 @@ function initializeApp() {
     console.log('  Space - Play/Pause');
     console.log('  ←/→ - Previous/Next word');
     console.log('  ↑/↓ or +/- - Adjust WPM');
+    console.log('  <> - Adjust font size');
     console.log('  Z - Toggle zen mode');
 }
 

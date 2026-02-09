@@ -906,6 +906,14 @@ if (!saved) {
                 event.preventDefault();
                 this.adjustWPM(-10);
                 break;
+            case 'Comma':
+                event.preventDefault();
+                this.adjustFontSize(-4);
+                break;
+            case 'Period':
+                event.preventDefault();
+                this.adjustFontSize(4);
+                break;
             case 'KeyZ':
                 event.preventDefault();
                 this.toggleZenMode();
