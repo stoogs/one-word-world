@@ -140,15 +140,15 @@ const StorageManager = {
                 theme: 'dark',
                 wpm: 300,
                 fontSize: 48,
-                orpColor: '#f85149',
-                textColor: '#e6edf3',
+                orpColor: '#1c71d8',
+                textColor: '#deddda',
                 chapterPanelOpen: true,
                 lastLoadedBookId: null
             };
             return data ? { ...defaults, ...JSON.parse(data) } : defaults;
         } catch (e) {
             console.error('Failed to load settings:', e);
-            return { theme: 'dark', wpm: 300, fontSize: 48, orpColor: '#f85149', textColor: '#e6edf3', chapterPanelOpen: true, lastLoadedBookId: null };
+            return { theme: 'dark', wpm: 300, fontSize: 48, orpColor: '#1c71d8', textColor: '#deddda', chapterPanelOpen: true, lastLoadedBookId: null };
         }
     },
 

@@ -267,8 +267,8 @@ const UIController = {
         }
 
         // Load and apply saved colors
-        const savedORPColor = settings.orpColor || '#f85149';
-        const savedTextColor = settings.textColor || '#e6edf3';
+        const savedORPColor = settings.orpColor || '#1c71d8';
+        const savedTextColor = settings.textColor || '#deddda';
         this.elements.orpColorPicker.value = savedORPColor;
         this.elements.textColorPicker.value = savedTextColor;
         this.applyColors(savedORPColor, savedTextColor);
