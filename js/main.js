@@ -41,7 +41,7 @@ function initializeApp() {
     console.log('Keyboard shortcuts:');
     console.log('  Space - Play/Pause');
     console.log('  ←/→ - Previous/Next word');
-    console.log('  ↑/↓ - Adjust WPM');
+    console.log('  ↑/↓ or +/- - Adjust WPM');
 }
 
 /**
