@@ -10,6 +10,7 @@ const UIController = {
     currentBook: null,
     currentChapter: null,
     chapterPanelOpen: true,
+    expandedBookId: null, // Track which book is expanded in sidebar
     expandedSections: new Set(), // Track expanded sections by ID
 
     /**
@@ -20,6 +21,18 @@ const UIController = {
         this.bindEvents();
         this.loadSettings();
         this.renderLibrary();
+        
+        // Auto-load last book if available
+        const settings = StorageManager.getSettings();
+        if (settings.lastLoadedBookId) {
+            const lastBook = StorageManager.getBook(settings.lastLoadedBookId);
+            if (lastBook) {
+                console.log(`Auto-loading last book: ${lastBook.title}`);
+                this.expandedBookId = lastBook.id;
+                this.loadBook(lastBook.id);
+            }
+        }
+        
         return this;
     },
 
@@ -124,14 +137,87 @@ const UIController = {
             return;
         }
         
-        // Handle book header click (main toggle)
+        // Handle load book button
+        const loadBtn = event.target.closest('.load-book-btn');
+        if (loadBtn) {
+            event.stopPropagation();
+            const bookId = loadBtn.dataset.bookId;
+            this.toggleBookExpansion(bookId);
+            this.loadBook(bookId);
+            return;
+        }
+        
+        // Handle unload book button
+        const unloadBtn = event.target.closest('.unload-book-btn');
+        if (unloadBtn) {
+            event.stopPropagation();
+            this.unloadBook();
+            return;
+        }
+        
+        // Handle book header click (toggle expansion only)
         const bookHeader = event.target.closest('.book-header');
         if (bookHeader) {
             const bookId = bookHeader.dataset.bookId;
-            const bookItem = bookHeader.closest('.book-item');
-            bookItem.classList.toggle('expanded');
-            this.loadBook(bookId);
+            this.toggleBookExpansion(bookId);
         }
+    },
+
+    /**
+     * Toggle book expansion in sidebar
+     */
+    toggleBookExpansion(bookId) {
+        // Collapse current expanded book
+        if (this.expandedBookId && this.expandedBookId !== bookId) {
+            const currentExpanded = document.querySelector(`.book-item[data-book-id="${this.expandedBookId}"]`);
+            if (currentExpanded) {
+                currentExpanded.classList.remove('expanded');
+            }
+        }
+        
+        // Toggle the clicked book
+        const bookItem = document.querySelector(`.book-item[data-book-id="${bookId}"]`);
+        if (bookItem) {
+            const isExpanded = bookItem.classList.contains('expanded');
+            if (isExpanded) {
+                bookItem.classList.remove('expanded');
+                this.expandedBookId = null;
+            } else {
+                bookItem.classList.add('expanded');
+                this.expandedBookId = bookId;
+            }
+        }
+    },
+
+    /**
+     * Unload current book from reader
+     */
+    unloadBook() {
+        // Save progress before unloading
+        if (this.currentBook && this.currentChapter) {
+            const progress = SpritzEngine.getProgress ? SpritzEngine.getProgress() : { wordIndex: 0 };
+            StorageManager.saveProgress(this.currentBook.id, this.currentChapter.index, progress.wordIndex || 0);
+        }
+        
+        // Clear from memory
+        this.currentBook = null;
+        this.currentChapter = null;
+        this.expandedBookId = null;
+        
+        // Stop playback
+        SpritzEngine.pause();
+        SpritzEngine.loadWords([], 0);
+        
+        // Reset UI
+        this.resetReader();
+        
+        // Clear last loaded book from settings
+        StorageManager.saveSettings({ lastLoadedBookId: null });
+        
+        // Re-render library to update buttons
+        this.renderLibrary();
+        
+        console.log('Book unloaded');
     },
 
     /**
@@ -182,6 +268,7 @@ const UIController = {
             
             // Refresh library and load book
             this.renderLibrary();
+            this.expandedBookId = bookData.id;
             this.loadBook(bookData.id);
             
             // Reset file input
@@ -216,32 +303,41 @@ const UIController = {
     },
 
     /**
-     * Render single book item with hierarchical TOC
+     * Render single book item - compact view with load/unload
      */
     renderBookItem(book) {
-        const isExpanded = this.currentBook && this.currentBook.id === book.id;
-        const isActive = isExpanded ? 'active' : '';
+        const isLoaded = this.currentBook && this.currentBook.id === book.id;
+        const isExpanded = this.expandedBookId === book.id;
         const expandedClass = isExpanded ? 'expanded' : '';
+        const loadedClass = isLoaded ? 'loaded' : '';
         
         const coverHtml = book.cover 
             ? `<img src="${book.cover}" alt="Cover">`
             : '📖';
         
-        // Render hierarchical TOC
-        const tocHtml = book.toc && book.toc.length > 0
+        // Show load or unload button based on state
+        const loadButton = isLoaded 
+            ? `<button class="unload-book-btn" data-book-id="${book.id}" title="Unload book">✕</button>`
+            : `<button class="load-book-btn" data-book-id="${book.id}" title="Load book">📖</button>`;
+        
+        // Render hierarchical TOC only if expanded
+        const tocHtml = isExpanded && book.toc && book.toc.length > 0
             ? this.renderTOCTree(book.toc, book.id, book.chapters || [])
-            : '<div class="no-toc">No table of contents available</div>';
+            : '';
         
         return `
-            <div class="book-item ${expandedClass}" data-book-id="${book.id}">
-                <div class="book-header ${isActive}" data-book-id="${book.id}">
+            <div class="book-item ${expandedClass} ${loadedClass}" data-book-id="${book.id}">
+                <div class="book-header" data-book-id="${book.id}">
                     <span class="book-toggle">▶</span>
                     <div class="book-cover">${coverHtml}</div>
                     <div class="book-meta">
                         <div class="book-title">${book.title || 'Untitled'}</div>
                         <div class="book-author">${book.author || 'Unknown Author'}</div>
                     </div>
-                    <button class="delete-book" data-book-id="${book.id}" title="Remove book">×</button>
+                    <div class="book-actions">
+                        ${loadButton}
+                        <button class="delete-book" data-book-id="${book.id}" title="Remove book">🗑️</button>
+                    </div>
                 </div>
                 <div class="toc-tree">
                     ${tocHtml}
@@ -363,7 +459,7 @@ const UIController = {
     },
 
     /**
-     * Load a book
+     * Load a book into the reader
      */
     loadBook(bookId) {
         // Get book data (from memory or storage)
@@ -383,9 +479,16 @@ const UIController = {
         // Check for saved progress
         const progress = StorageManager.getProgress(bookId);
         const chapterIndex = progress ? progress.chapterIndex : 0;
+        const wordIndex = progress ? progress.wordIndex : 0;
+        
+        // Save as last loaded book
+        StorageManager.saveSettings({ lastLoadedBookId: bookId });
+        
+        // Re-render library to update load/unload buttons
+        this.renderLibrary();
         
         // Load first or saved chapter
-        this.loadChapter(bookId, chapterIndex);
+        this.loadChapter(bookId, chapterIndex, '', '');
     },
 
     /**

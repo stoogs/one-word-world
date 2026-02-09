@@ -134,12 +134,13 @@ const StorageManager = {
             const defaults = {
                 theme: 'dark',
                 wpm: 300,
-                chapterPanelOpen: true
+                chapterPanelOpen: true,
+                lastLoadedBookId: null
             };
             return data ? { ...defaults, ...JSON.parse(data) } : defaults;
         } catch (e) {
             console.error('Failed to load settings:', e);
-            return { theme: 'dark', wpm: 300, chapterPanelOpen: true };
+            return { theme: 'dark', wpm: 300, chapterPanelOpen: true, lastLoadedBookId: null };
         }
     },
 

@@ -228,6 +228,70 @@ body {
     color: var(--warning);
 }
 
+/* Book Actions Container */
+.book-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.book-header:hover .book-actions,
+.book-item.loaded .book-actions {
+    opacity: 1;
+}
+
+/* Load Book Button */
+.load-book-btn {
+    background: var(--accent);
+    border: none;
+    color: white;
+    cursor: pointer;
+    padding: 6px 10px;
+    border-radius: 4px;
+    font-size: 0.875rem;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.load-book-btn:hover {
+    background: var(--accent-hover);
+    transform: scale(1.05);
+}
+
+/* Unload Book Button */
+.unload-book-btn {
+    background: var(--warning);
+    border: none;
+    color: white;
+    cursor: pointer;
+    padding: 6px 10px;
+    border-radius: 4px;
+    font-size: 0.875rem;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.unload-book-btn:hover {
+    background: #ff6b6b;
+    transform: scale(1.05);
+}
+
+/* Loaded book styling */
+.book-item.loaded {
+    border: 2px solid var(--accent);
+    box-shadow: 0 0 0 2px var(--accent-hover);
+}
+
+.book-item.loaded .book-header {
+    background: rgba(88, 166, 255, 0.1);
+}
+
 /* TOC Tree - Hierarchical Structure */
 .toc-tree {
     max-height: 0;
