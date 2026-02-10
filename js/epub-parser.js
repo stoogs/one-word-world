@@ -391,7 +391,7 @@ const EpubParser = {
                 href,
                 title,
                 preview,
-                displayNumber: `Chapter ${sequentialChapterNum}`,
+                displayNumber: ``,
                 words,
                 content,
                 chapterIndex: allChapters.length

@@ -440,6 +440,12 @@ body {
     transform: translateY(-1px);
 }
 
+.gutenberg-link {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
 /* ========================================
    Main Content
    ======================================== */
@@ -613,7 +619,6 @@ body {
 }
 
 .spritz-focus {
-    position: relative;
     display: flex;
     align-items: center;
     justify-content: center;

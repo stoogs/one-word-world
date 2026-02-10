@@ -472,7 +472,7 @@ if (!saved) {
                              data-section-id="${item.id}"
                              data-first-chapter="${firstChapterIndex}">
                             <span class="section-toggle">▶</span>
-                            <span class="section-title">${this.escapeHtml(item.title || 'Section')}</span>
+                            <span class="section-title">${this.escapeHtml(item.title || 'Part')}</span>
                         </div>
                         <div class="section-children">
                             ${this.renderTOCTree(item.children, bookId, chapters, renderedEntries)}
@@ -504,9 +504,8 @@ if (!saved) {
                 // Smart title formatting: if TOC title already has chapter numbering, use it directly
                 // Otherwise prefix with sequential display number
                 const hasChapterNumber = /^\s*(chapter|ch\.?|part|section|book)\s*\d+/i.test(tocTitle);
-                const title = hasChapterNumber ? tocTitle : (chapter.displayNumber + (tocTitle ? ': ' + tocTitle : ''));
+                const title = hasChapterNumber ? tocTitle : (chapter.displayNumber + (tocTitle ? '' + tocTitle : ''));
                 const preview = chapter.preview || '';
-                
                 return `
                     <div class="chapter-item" 
                          data-book-id="${bookId}" 
@@ -624,7 +623,7 @@ if (!saved) {
         const displayTitle = tocTitle || chapter.title || '';
         // Smart title formatting: if title already has chapter numbering, use it directly
         const hasChapterNumber = /^\s*(chapter|ch\.?|part|section|book)\s*\d+/i.test(displayTitle);
-        const title = hasChapterNumber ? displayTitle : (chapter.displayNumber + (displayTitle ? ': ' + displayTitle : ''));
+        const title = hasChapterNumber ? displayTitle : (chapter.displayNumber + (displayTitle ? '' + displayTitle : ''));
         const preview = chapter.preview || '';
         
         this.elements.chapterTitle.innerHTML = `
