@@ -92,6 +92,7 @@ const UIController = {
             progressBar: document.getElementById('progressBar'),
             progressFill: document.getElementById('progressFill'),
             progressText: document.getElementById('progressText'),
+            zenWordCount: document.getElementById('zenWordCount'),
             
             // Loading
             loadingOverlay: document.getElementById('loadingOverlay')
@@ -980,6 +981,12 @@ const UIController = {
     updateProgress(percentage) {
         this.elements.progressFill.style.width = percentage + '%';
         this.elements.progressText.textContent = Math.round(percentage) + '%';
+        if (this.isZenMode && this.elements.zenWordCount && SpritzEngine.words.length > 0) {
+            const current = SpritzEngine.currentIndex + 1;
+            const total = SpritzEngine.words.length;
+            this.elements.zenWordCount.textContent = `(${current} / ${total} words)`;
+            this.elements.zenWordCount.setAttribute('aria-hidden', 'false');
+        }
     },
 
     /**
@@ -1158,6 +1165,14 @@ const UIController = {
         // Start playback when entering fullscreen (touch-friendly: tap word = fullscreen + play)
         SpritzEngine.play();
 
+        // Show word count at bottom (e.g. "300 / 1234 words")
+        if (this.elements.zenWordCount && SpritzEngine.words.length > 0) {
+            const current = SpritzEngine.currentIndex + 1;
+            const total = SpritzEngine.words.length;
+            this.elements.zenWordCount.textContent = `(${current} / ${total} words)`;
+            this.elements.zenWordCount.setAttribute('aria-hidden', 'false');
+        }
+
         console.log('[ZEN MODE] Zen mode active');
     },
 
@@ -1174,6 +1189,10 @@ const UIController = {
         
         // Stop playback when leaving fullscreen
         SpritzEngine.pause();
+
+        if (this.elements.zenWordCount) {
+            this.elements.zenWordCount.setAttribute('aria-hidden', 'true');
+        }
 
         // Exit fullscreen
         if (document.fullscreenElement) {
