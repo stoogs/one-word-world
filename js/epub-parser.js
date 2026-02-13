@@ -432,6 +432,7 @@ const EpubParser = {
                             displayNumber: '',
                             words: introWords,
                             content,
+                            wordOffset: 0,
                             chapterIndex: allChapters.length
                         });
                     }
@@ -452,6 +453,7 @@ const EpubParser = {
                         displayNumber: '',
                         words: sectionWords,
                         content,
+                        wordOffset: start,
                         chapterIndex: allChapters.length
                     });
                 }
@@ -693,18 +695,39 @@ const EpubParser = {
      */
     findChapterIndexByHref(chapters, href) {
         if (!chapters || !chapters.length || href == null) return -1;
-        const normalizedTarget = this.normalizeHref(href);
-        const targetFilename = this.hrefFilename(href);
+        const parts = (href || '').split('#');
+        const targetPath = (parts[0] || '').trim();
+        const targetAnchor = (parts[1] || '').trim();
+        const normalizedTarget = this.normalizeHref(targetPath);
+        const targetFilename = this.hrefFilename(targetPath);
         if (!normalizedTarget && !targetFilename) return -1;
+
+        // When TOC has fragment (e.g. file.xhtml#pgepubid00006), prefer exact path+anchor match
+        // so we load the correct split chapter, not the first chapter with that path
+        if (targetAnchor) {
+            for (let i = 0; i < chapters.length; i++) {
+                const ch = chapters[i].href;
+                const chParts = (ch || '').split('#');
+                const chPath = (chParts[0] || '').trim();
+                const chAnchor = (chParts[1] || '').trim();
+                if (chAnchor !== targetAnchor) continue;
+                const normCh = this.normalizeHref(chPath);
+                const chFn = this.hrefFilename(chPath);
+                if (normCh === normalizedTarget) return i;
+                if (chFn && targetFilename && chFn === targetFilename) return i;
+                if (normCh && normCh.endsWith('/' + targetFilename)) return i;
+                if (normalizedTarget && normalizedTarget.endsWith('/' + chFn)) return i;
+            }
+        }
 
         for (let i = 0; i < chapters.length; i++) {
             const ch = chapters[i].href;
-            const normalizedChapter = this.normalizeHref(ch);
-            const chapterFilename = this.hrefFilename(ch);
+            const chPath = (ch || '').split('#')[0].trim();
+            const normalizedChapter = this.normalizeHref(chPath);
+            const chapterFilename = this.hrefFilename(chPath);
 
             if (normalizedChapter === normalizedTarget) return i;
             if (chapterFilename && targetFilename && chapterFilename === targetFilename) return i;
-            // One path may be relative (short), the other with base (e.g. "chap.xhtml" vs "text/chap.xhtml")
             if (normalizedChapter && normalizedChapter.endsWith('/' + targetFilename)) return i;
             if (normalizedTarget && normalizedTarget.endsWith('/' + chapterFilename)) return i;
         }

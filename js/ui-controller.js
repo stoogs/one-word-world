@@ -806,8 +806,11 @@ const UIController = {
                 .filter(w => w.length > 0)
                 .length;
 
-            // Start at first word after the heading (word index = wordsBefore is first word after)
-            return Math.min(wordsBefore, Math.max(0, chapter.words.length - 1));
+            // When chapter is a split section (has wordOffset), convert full-doc position to section-relative index
+            const wordOffset = chapter.wordOffset != null ? chapter.wordOffset : 0;
+            let sectionRelativeIndex = wordsBefore - wordOffset;
+            if (sectionRelativeIndex < 0) sectionRelativeIndex = 0;
+            return Math.min(sectionRelativeIndex, Math.max(0, chapter.words.length - 1));
         } catch (e) {
             console.error('Error finding anchor:', e);
             return 0;
