@@ -460,10 +460,14 @@ const UIController = {
             ? `<button class="unload-book-btn" data-book-id="${book.id}" title="Remove from library">Remove</button>`
             : '';
 
-        // Render TOC when expanded: try hierarchical TOC, then fallback to flat chapter list
+        // Render TOC when expanded: use hierarchical TOC only if it covers most chapters; otherwise full list
         let tocHtml = '';
         if (isExpanded && book.chapters && book.chapters.length > 0) {
-            if (book.toc && book.toc.length > 0) {
+            const tocChapterCount = book.toc && book.toc.length > 0
+                ? this.countTOCChapters(book.toc, book.chapters)
+                : 0;
+            const useTOC = tocChapterCount >= book.chapters.length * 0.5;
+            if (book.toc && book.toc.length > 0 && useTOC) {
                 tocHtml = this.renderTOCTree(book.toc, book.id, book.chapters);
             }
             if (!tocHtml) {
@@ -489,6 +493,23 @@ const UIController = {
                 </div>
             </div>
         `;
+    },
+
+    /**
+     * Count how many chapters the TOC tree would show (leaf entries that match a chapter).
+     * Used to detect sparse TOC (e.g. only "Contents" / parts) so we can show full chapter list instead.
+     */
+    countTOCChapters(items, chapters) {
+        if (!items || !items.length || !chapters || !chapters.length) return 0;
+        let count = 0;
+        for (const item of items) {
+            if (item.type === 'section' && item.children && item.children.length > 0) {
+                count += this.countTOCChapters(item.children, chapters);
+            } else {
+                if (EpubParser.findChapterIndexByHref(chapters, item.href) !== -1) count++;
+            }
+        }
+        return count;
     },
 
     /**
