@@ -1155,6 +1155,9 @@ const UIController = {
             });
         }
 
+        // Start playback when entering fullscreen (touch-friendly: tap word = fullscreen + play)
+        SpritzEngine.play();
+
         console.log('[ZEN MODE] Zen mode active');
     },
 
@@ -1169,6 +1172,9 @@ const UIController = {
         // Remove zen mode class
         document.body.classList.remove('zen-mode');
         
+        // Stop playback when leaving fullscreen
+        SpritzEngine.pause();
+
         // Exit fullscreen
         if (document.fullscreenElement) {
             document.exitFullscreen().catch(err => {
