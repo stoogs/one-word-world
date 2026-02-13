@@ -5,23 +5,21 @@
  */
 
 // Wait for DOM to be ready
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     console.log('📚 EPUB Reader initializing...');
-    
-    // Initialize all modules
-    initializeApp();
+    await initializeApp();
 });
 
 /**
- * Initialize the application
+ * Initialize the application (async - IndexedDB must open first)
  */
-function initializeApp() {
-    // Initialize storage first (other modules depend on it)
-    StorageManager.init();
-    
-    // Initialize theme manager
+async function initializeApp() {
+    // Initialize storage first (IndexedDB)
+    await StorageManager.init();
+
+    // Initialize theme manager (uses cached settings)
     ThemeManager.init();
-    
+
     // Initialize Spritz engine with callbacks
     SpritzEngine.init({
         wpm: StorageManager.getSettings().wpm || 300,
@@ -30,13 +28,13 @@ function initializeApp() {
         onProgressChange: handleProgressChange,
         onChapterEnd: handleChapterEnd
     });
-    
-    // Initialize UI controller
-    UIController.init();
-    
+
+    // Initialize UI controller (loads library and last book from IndexedDB)
+    await UIController.init();
+
     // Setup auto-save interval
     setupAutoSave();
-    
+
     console.log('✅ EPUB Reader ready!');
     console.log('Keyboard shortcuts:');
     console.log('  Space - Play/Pause');
@@ -97,20 +95,16 @@ function setupAutoSave() {
 }
 
 /**
- * Save current reading progress
+ * Save current reading progress (async; fire-and-forget from timer/visibility)
  */
 function saveCurrentProgress() {
     const book = UIController.currentBook;
     const chapter = UIController.currentChapter;
     const position = SpritzEngine.getPosition();
-    
+
     if (book && chapter) {
         console.log(`[AUTO-SAVE] Saving progress - Book: ${book.id}, Chapter: ${chapter.index}, Word: ${position.index}`);
-        StorageManager.saveProgress(
-            book.id,
-            chapter.index,
-            position.index
-        );
+        StorageManager.saveProgress(book.id, chapter.index, position.index);
     } else {
         console.log(`[AUTO-SAVE] Skipped - No active book/chapter`);
     }

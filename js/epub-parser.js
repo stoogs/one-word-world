@@ -273,8 +273,8 @@ const EpubParser = {
         );
         
         const title = label ? this.cleanTitle(label.textContent) : '';
-        const href = content ? content.getAttribute('src') : '';
-        
+        let href = content ? content.getAttribute('src') : '';
+        if (href) href = href.trim();
         const item = {
             id: point.getAttribute('id') || `nav-${index}`,
             title,
@@ -297,28 +297,43 @@ const EpubParser = {
     },
 
     /**
-     * Parse NAV file (EPUB3) hierarchically
+     * Parse NAV file (EPUB3) hierarchically. Tries toc nav first, then any nav with ol, then flat links.
      */
     parseNAVHierarchical(xml) {
         const parser = new DOMParser();
         const doc = parser.parseFromString(xml, 'application/xml');
-        
+
         const tree = [];
         const flat = [];
-        
-        const tocElement = doc.querySelector('nav[epub:type="toc"]') || doc.querySelector('nav');
-        
+
+        const tocElement =
+            doc.querySelector('nav[epub:type="toc"]') ||
+            doc.querySelector('nav[epub\\:type="toc"]') ||
+            doc.querySelector('nav');
+
         if (tocElement) {
             const ol = tocElement.querySelector('ol');
             if (ol) {
-                const listItems = Array.from(ol.children);
+                const listItems = Array.from(ol.children).filter(li => li.tagName && li.tagName.toLowerCase() === 'li');
                 listItems.forEach((li, index) => {
                     const item = this.parseNavListItem(li, index, flat);
                     tree.push(item);
                 });
             }
+            if (tree.length === 0) {
+                const links = tocElement.querySelectorAll('a[href]');
+                links.forEach((a, index) => {
+                    const href = (a.getAttribute('href') || '').trim();
+                    const title = this.cleanTitle(a.textContent);
+                    if (href) {
+                        const item = { id: `nav-${index}`, title, href, depth: 0, type: 'item' };
+                        tree.push(item);
+                        flat.push(item);
+                    }
+                });
+            }
         }
-        
+
         return { tree, flat };
     },
 
@@ -330,8 +345,8 @@ const EpubParser = {
         const ol = li.querySelector('ol');
         
         const title = link ? this.cleanTitle(link.textContent) : '';
-        const href = link ? link.getAttribute('href') : '';
-        
+        let href = link ? link.getAttribute('href') : '';
+        if (href) href = href.trim();
         const item = {
             id: `nav-${index}`,
             title,
@@ -472,14 +487,27 @@ const EpubParser = {
     },
 
     /**
-     * Normalize href for TOC matching
+     * Normalize href for TOC matching (handles encoding, relative paths, anchors)
      */
     normalizeHref(href) {
-        if (!href) return '';
-        // Remove anchor
-        const withoutAnchor = href.split('#')[0];
-        // Normalize path separators
-        return withoutAnchor.replace(/\\/g, '/').toLowerCase();
+        if (!href || typeof href !== 'string') return '';
+        let s = href.split('#')[0].trim();
+        try {
+            s = decodeURIComponent(s);
+        } catch (_) { /* leave as-is if not valid URI */ }
+        s = s.replace(/\\/g, '/').replace(/\/+/g, '/').toLowerCase();
+        // Remove leading . or ./
+        s = s.replace(/^\.\/?/, '');
+        return s;
+    },
+
+    /**
+     * Get filename part of path for loose matching (e.g. "path/to/chap.xhtml" -> "chap.xhtml")
+     */
+    hrefFilename(href) {
+        const n = this.normalizeHref(href);
+        const part = n.split('/').pop();
+        return part || n;
     },
 
     /**
@@ -549,24 +577,26 @@ const EpubParser = {
     },
 
     /**
-     * Match TOC item to chapter by href
+     * Match TOC item to chapter by href (robust: exact path, filename, and path endings)
      */
     findChapterIndexByHref(chapters, href) {
+        if (!chapters || !chapters.length || href == null) return -1;
         const normalizedTarget = this.normalizeHref(href);
-        
+        const targetFilename = this.hrefFilename(href);
+        if (!normalizedTarget && !targetFilename) return -1;
+
         for (let i = 0; i < chapters.length; i++) {
-            const normalizedChapter = this.normalizeHref(chapters[i].href);
-            if (normalizedChapter === normalizedTarget) {
-                return i;
-            }
-            // Also try matching just filename
-            const chapterFilename = normalizedChapter.split('/').pop();
-            const targetFilename = normalizedTarget.split('/').pop();
-            if (chapterFilename === targetFilename) {
-                return i;
-            }
+            const ch = chapters[i].href;
+            const normalizedChapter = this.normalizeHref(ch);
+            const chapterFilename = this.hrefFilename(ch);
+
+            if (normalizedChapter === normalizedTarget) return i;
+            if (chapterFilename && targetFilename && chapterFilename === targetFilename) return i;
+            // One path may be relative (short), the other with base (e.g. "chap.xhtml" vs "text/chap.xhtml")
+            if (normalizedChapter && normalizedChapter.endsWith('/' + targetFilename)) return i;
+            if (normalizedTarget && normalizedTarget.endsWith('/' + chapterFilename)) return i;
         }
-        
+
         return -1;
     }
 };

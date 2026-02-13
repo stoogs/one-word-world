@@ -222,26 +222,7 @@ body {
     opacity: 1;
 }
 
-/* Load Book Button */
-.load-book-btn {
-    background: var(--accent);
-    border: none;
-    color: white;
-    cursor: pointer;
-    padding: 4px 8px;
-    border-radius: 4px;
-    font-size: 0.75rem;
-    font-weight: 500;
-    transition: all 0.2s ease;
-    white-space: nowrap;
-}
-
-.load-book-btn:hover {
-    background: var(--accent-hover);
-    transform: scale(1.05);
-}
-
-/* Unload Book Button */
+/* Remove from library button (shown for current book only) */
 .unload-book-btn {
     background: var(--warning);
     border: none;

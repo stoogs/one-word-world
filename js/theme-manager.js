@@ -72,6 +72,3 @@ const ThemeManager = {
         return this.currentTheme === 'dark';
     }
 };
-
-// Auto-initialize
-ThemeManager.init();

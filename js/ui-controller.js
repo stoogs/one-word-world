@@ -5,7 +5,7 @@
 const UIController = {
     // DOM Elements cache
     elements: {},
-    
+
     // State
     currentBook: null,
     currentChapter: null,
@@ -13,28 +13,36 @@ const UIController = {
     expandedBookId: null, // Track which book is expanded in sidebar
     expandedSections: new Set(), // Track expanded sections by ID
     isZenMode: false, // Track zen mode state
+    /** Full book objects (with chapters) per id – keeps sidebar chapters when switching books */
+    bookCache: {},
 
     /**
-     * Initialize UI controller
+     * Initialize UI controller (async - loads library and last book from IndexedDB)
      */
-    init() {
+    async init() {
         this.cacheElements();
         this.bindEvents();
         this.loadSettings();
-        this.renderLibrary();
-        
-        // Auto-load last book if available
+
+        await this.validateState();
+        await this.renderLibrary();
+
         const settings = StorageManager.getSettings();
         if (settings.lastLoadedBookId) {
-            const lastBook = StorageManager.getBook(settings.lastLoadedBookId);
+            const lastBook = await StorageManager.getBook(settings.lastLoadedBookId);
             if (lastBook) {
+                if (lastBook.chapters && lastBook.chapters.length) {
+                    this.bookCache[lastBook.id] = lastBook;
+                }
                 console.log(`Auto-loading last book: ${lastBook.title}`);
                 this.expandedBookId = lastBook.id;
-                this.loadBook(lastBook.id);
+                await this.loadBook(lastBook.id);
             }
         }
 
-        // Listen for fullscreen changes to sync zen mode
+        await this.validateState();
+        await this.renderLibrary();
+
         document.addEventListener('fullscreenchange', () => {
             if (!document.fullscreenElement && this.isZenMode) {
                 console.log('[ZEN MODE] Fullscreen exited, leaving zen mode');
@@ -139,16 +147,16 @@ const UIController = {
     /**
      * Handle clicks in library container (event delegation)
      */
-    handleLibraryClick(event) {
+    async handleLibraryClick(event) {
         // Handle section toggle
         const sectionHeader = event.target.closest('.section-header');
         if (sectionHeader) {
             const bookId = sectionHeader.dataset.bookId;
             const sectionId = sectionHeader.dataset.sectionId;
-            this.toggleSection(bookId, sectionId, sectionHeader);
+            await this.toggleSection(bookId, sectionId, sectionHeader);
             return;
         }
-        
+
         // Handle chapter click
         const chapterItem = event.target.closest('.chapter-item');
         if (chapterItem) {
@@ -156,33 +164,29 @@ const UIController = {
             const chapterIndex = parseInt(chapterItem.dataset.chapterIndex);
             const anchor = chapterItem.dataset.anchor || '';
             const tocTitle = chapterItem.dataset.tocTitle || '';
-            this.loadChapter(bookId, chapterIndex, anchor, tocTitle);
+            await this.loadChapter(bookId, chapterIndex, anchor, tocTitle);
             return;
         }
-        
-        // Handle load book button
-        const loadBtn = event.target.closest('.load-book-btn');
-        if (loadBtn) {
-            event.stopPropagation();
-            const bookId = loadBtn.dataset.bookId;
-            this.toggleBookExpansion(bookId);
-            this.loadBook(bookId);
-            return;
-        }
-        
-        // Handle unload book button
+
+        // Handle Remove button (current book only)
         const unloadBtn = event.target.closest('.unload-book-btn');
         if (unloadBtn) {
             event.stopPropagation();
-            this.unloadBook();
+            await this.unloadBook();
             return;
         }
-        
-        // Handle book header click (toggle expansion only)
+
+        // Handle book header click: load book and expand chapters (or toggle chapters if same book)
         const bookHeader = event.target.closest('.book-header');
         if (bookHeader) {
             const bookId = bookHeader.dataset.bookId;
-            this.toggleBookExpansion(bookId);
+            if (this.currentBook && this.currentBook.id === bookId) {
+                this.toggleBookExpansion(bookId);
+            } else {
+                this.expandedBookId = bookId;
+                await this.loadBook(bookId);
+            }
+            return;
         }
     },
 
@@ -215,44 +219,43 @@ const UIController = {
     /**
      * Unload and remove current book from storage
      */
-    unloadBook() {
+    async unloadBook() {
         if (!this.currentBook) return;
-        
+
         const bookTitle = this.currentBook.title || 'Untitled';
-        
+
         // Show confirmation dialog
         if (!confirm(`Remove "${bookTitle}" from storage?\n\nProgress will be saved. You can re-upload the EPUB file later to resume reading.`)) {
             return;
         }
-        
+
         // Save progress before removing
         if (this.currentChapter) {
             const position = SpritzEngine.getPosition ? SpritzEngine.getPosition() : { index: 0 };
             console.log(`[UNLOAD] Saving final progress - Chapter: ${this.currentChapter.index}, Word: ${position.index}`);
-            StorageManager.saveProgress(this.currentBook.id, this.currentChapter.index, position.index || 0);
+            await StorageManager.saveProgress(this.currentBook.id, this.currentChapter.index, position.index || 0);
         }
-        
-        // Remove book from storage (this frees up space)
-        StorageManager.removeBook(this.currentBook.id);
-        
-        // Clear from memory
+
+        // Remove book from storage
+        await StorageManager.removeBook(this.currentBook.id);
+
+        const removedId = this.currentBook.id;
         this.currentBook = null;
         this.currentChapter = null;
         this.expandedBookId = null;
-        
+        delete this.bookCache[removedId];
+
         // Stop playback
         SpritzEngine.pause();
         SpritzEngine.loadWords([], 0);
-        
+
         // Reset UI
         this.resetReader();
-        
-        // Clear last loaded book from settings
+
         StorageManager.saveSettings({ lastLoadedBookId: null });
-        
-        // Re-render library to update buttons
-        this.renderLibrary();
-        
+
+        await this.renderLibrary();
+
         console.log(`Book "${bookTitle}" removed from storage`);
     },
 
@@ -361,21 +364,21 @@ const UIController = {
             
             console.log(`Parsed "${bookData.title}" with ${bookData.chapters.length} chapters`);
             
-            // Save book (10MB limit)
-            const saved = StorageManager.addBook(bookData);
-            
-if (!saved) {
-                console.error('Storage limit reached');
-                alert('Browser limited to 1 active book at a time (~1MB storage limit).\n\nPlease remove (unload) current book first, then upload the new one.\n\nYour reading progress will be saved and you can resume later.');
+            // Save book to IndexedDB (no size limit)
+            const saved = await StorageManager.addBook(bookData);
+
+            if (!saved) {
+                console.error('Failed to save book');
+                alert('Failed to save book to storage. Please try again.');
                 return;
             }
-            
+
             console.log('Book saved successfully');
-            
-            // Refresh library and load book
-            this.renderLibrary();
+
+            this.bookCache[bookData.id] = bookData;
             this.expandedBookId = bookData.id;
-            this.loadBook(bookData.id);
+            await this.renderLibrary();
+            await this.loadBook(bookData.id);
             
             // Reset file input
             event.target.value = '';
@@ -389,12 +392,37 @@ if (!saved) {
     },
 
     /**
-     * Render library sidebar
+     * Validate state against current library (fix expanded/current if books were removed).
+     * Call before every library render. Returns the library array to use for rendering.
      */
-    renderLibrary() {
-        const library = StorageManager.getLibrary();
+    async validateState() {
+        const library = await StorageManager.getLibrary();
+        const ids = new Set(library.map(b => b.id));
+
+        if (this.expandedBookId && !ids.has(this.expandedBookId)) {
+            this.expandedBookId = null;
+        }
+        if (this.currentBook && !ids.has(this.currentBook.id)) {
+            this.currentBook = null;
+            this.currentChapter = null;
+            SpritzEngine.pause();
+            SpritzEngine.loadWords([], 0);
+            this.resetReader();
+            StorageManager.saveSettings({ lastLoadedBookId: null });
+        }
+
+        return library;
+    },
+
+    /**
+     * Render library sidebar (async). Validates state first, then renders from IndexedDB.
+     */
+    async renderLibrary() {
+        const library = await this.validateState();
         const container = this.elements.libraryContainer;
-        
+
+        if (!container) return;
+
         if (library.length === 0) {
             container.innerHTML = `
                 <div class="empty-state">
@@ -404,33 +432,45 @@ if (!saved) {
             `;
             return;
         }
-        
+
         container.innerHTML = library.map(book => this.renderBookItem(book)).join('');
     },
 
     /**
-     * Render single book item - compact view with load/unload
+     * Render single book item - compact view with load/unload.
+     * Prefers bookCache (full book with chapters) so chapters stay visible when switching books.
      */
     renderBookItem(book) {
+        const id = book.id;
+        if (this.bookCache[id] && this.bookCache[id].chapters && this.bookCache[id].chapters.length) {
+            book = this.bookCache[id];
+        } else if (this.currentBook && this.currentBook.id === id) {
+            book = this.currentBook;
+        }
         const isLoaded = this.currentBook && this.currentBook.id === book.id;
         const isExpanded = this.expandedBookId === book.id;
         const expandedClass = isExpanded ? 'expanded' : '';
         const loadedClass = isLoaded ? 'loaded' : '';
-        
+
         const coverHtml = book.cover 
             ? `<img src="${book.cover}" alt="Cover">`
             : '📖';
-        
-        // Show load or remove button based on state
-        const loadButton = isLoaded 
-            ? `<button class="unload-book-btn" data-book-id="${book.id}" title="Remove book from storage">Remove</button>`
-            : `<button class="load-book-btn" data-book-id="${book.id}" title="Load book">Load</button>`;
-        
-        // Render hierarchical TOC only if expanded
-        const tocHtml = isExpanded && book.toc && book.toc.length > 0
-            ? this.renderTOCTree(book.toc, book.id, book.chapters || [])
+
+        const removeButton = isLoaded
+            ? `<button class="unload-book-btn" data-book-id="${book.id}" title="Remove from library">Remove</button>`
             : '';
-        
+
+        // Render TOC when expanded: try hierarchical TOC, then fallback to flat chapter list
+        let tocHtml = '';
+        if (isExpanded && book.chapters && book.chapters.length > 0) {
+            if (book.toc && book.toc.length > 0) {
+                tocHtml = this.renderTOCTree(book.toc, book.id, book.chapters);
+            }
+            if (!tocHtml) {
+                tocHtml = this.renderFallbackChapterList(book.chapters, book.id);
+            }
+        }
+
         return `
             <div class="book-item ${expandedClass} ${loadedClass}" data-book-id="${book.id}">
                 <div class="book-header" data-book-id="${book.id}">
@@ -441,7 +481,7 @@ if (!saved) {
                         <div class="book-author">${book.author || 'Unknown Author'}</div>
                     </div>
                     <div class="book-actions">
-                        ${loadButton}
+                        ${removeButton}
                     </div>
                 </div>
                 <div class="toc-tree">
@@ -456,10 +496,7 @@ if (!saved) {
      */
     renderTOCTree(items, bookId, chapters, renderedEntries = new Set()) {
         if (!items || items.length === 0) return '';
-        
-        // Debug logging
-        console.log(`Rendering TOC tree: ${items.length} items, ${chapters?.length || 0} chapters available`);
-        
+
         return items.map(item => {
             if (item.type === 'section' && item.children && item.children.length > 0) {
                 // Find first chapter in this section for auto-load
@@ -482,11 +519,7 @@ if (!saved) {
             } else {
                 // Regular item or leaf node - find matching chapter
                 const chapterIndex = EpubParser.findChapterIndexByHref(chapters, item.href);
-                if (chapterIndex === -1) {
-                    // This TOC item doesn't have a matching chapter (might be non-reading content)
-                    console.log(`No chapter found for TOC item: "${item.title}" href: ${item.href}`);
-                    return '';
-                }
+                if (chapterIndex === -1) return '';
                 
                 // Extract anchor from href (e.g., "file.html#section1" -> "section1")
                 const anchor = item.href ? item.href.split('#')[1] || '' : '';
@@ -521,6 +554,27 @@ if (!saved) {
     },
 
     /**
+     * Render a flat list of chapters when TOC is missing or doesn't match (spine order)
+     */
+    renderFallbackChapterList(chapters, bookId) {
+        if (!chapters || !chapters.length) return '';
+        return chapters.map((chapter, index) => {
+            const title = chapter.title || `Chapter ${index + 1}`;
+            const preview = chapter.preview || '';
+            return `
+                <div class="chapter-item"
+                     data-book-id="${bookId}"
+                     data-chapter-index="${index}"
+                     data-anchor=""
+                     data-toc-title="${this.escapeHtml(title)}">
+                    <div class="chapter-title">${this.escapeHtml(title)}</div>
+                    ${preview ? `<div class="chapter-preview">${this.escapeHtml(preview)}</div>` : ''}
+                </div>
+            `;
+        }).join('');
+    },
+
+    /**
      * Find first readable chapter in a section
      */
     findFirstChapterInSection(section, chapters) {
@@ -542,66 +596,72 @@ if (!saved) {
     /**
      * Toggle section expansion and auto-load first chapter
      */
-    toggleSection(bookId, sectionId, sectionHeader) {
+    async toggleSection(bookId, sectionId, sectionHeader) {
         const section = sectionHeader.closest('.toc-section');
         const children = section.querySelector('.section-children');
         const isExpanded = section.classList.contains('expanded');
-        
+
         if (isExpanded) {
             section.classList.remove('expanded');
             children.style.maxHeight = '0';
         } else {
             section.classList.add('expanded');
             children.style.maxHeight = children.scrollHeight + 'px';
-            
+
             // Auto-load first chapter in section
             const firstChapterIndex = sectionHeader.dataset.firstChapter;
             if (firstChapterIndex && firstChapterIndex !== '-1') {
-                this.loadChapter(bookId, parseInt(firstChapterIndex));
+                await this.loadChapter(bookId, parseInt(firstChapterIndex));
             }
         }
     },
 
     /**
-     * Load a book into the reader
+     * Load a book into the reader (async). Expands this book's chapters and collapses others.
      */
-    loadBook(bookId) {
+    async loadBook(bookId) {
         console.log(`[LOAD BOOK] Starting load for book ID: ${bookId}`);
-        
-        // Get book data (from memory or storage)
-        let book = this.currentBook && this.currentBook.id === bookId 
-            ? this.currentBook 
-            : StorageManager.getBook(bookId);
-        
+
+        this.expandedBookId = bookId;
+
+        let book = this.currentBook && this.currentBook.id === bookId
+            ? this.currentBook
+            : await StorageManager.getBook(bookId);
+
         if (!book) {
             console.log(`[LOAD BOOK] Book not found: ${bookId}`);
             return;
         }
-        
-        console.log(`[LOAD BOOK] Book found: "${book.title}"`);
+
+        const hasChapters = book.chapters && book.chapters.length > 0;
+        if (!hasChapters && this.bookCache[bookId]?.chapters?.length) {
+            book = this.bookCache[bookId];
+        }
+        if (book.chapters && book.chapters.length > 0) {
+            this.bookCache[bookId] = book;
+        }
+
+        console.log(`[LOAD BOOK] Book found: "${book.title}" (chapters: ${book.chapters?.length ?? 0})`);
         this.currentBook = book;
-        
+
         // Update book info
         this.elements.bookInfo.innerHTML = `
             <h2>${book.title || 'Untitled'}</h2>
         `;
-        
+
         // Check for saved progress
-        const progress = StorageManager.getProgress(bookId);
+        const progress = await StorageManager.getProgress(bookId);
         console.log(`[LOAD BOOK] Progress check result:`, progress);
         const chapterIndex = progress ? progress.chapterIndex : 0;
         const wordIndex = progress ? progress.wordIndex : 0;
-        
+
         console.log(`[LOAD BOOK] Loading chapter ${chapterIndex} at word ${wordIndex}`);
-        
-        // Save as last loaded book
+
         StorageManager.saveSettings({ lastLoadedBookId: bookId });
-        
-        // Re-render library to update load/unload buttons
-        this.renderLibrary();
-        
-        // Load first or saved chapter
-        this.loadChapter(bookId, chapterIndex, '', '');
+
+        await this.renderLibrary();
+
+        await this.loadChapter(bookId, chapterIndex, '', '');
     },
 
     /**
@@ -611,39 +671,39 @@ if (!saved) {
      * @param {string} anchor - Optional anchor/fragment to jump to within chapter
      * @param {string} tocTitle - Optional TOC title override
      */
-    loadChapter(bookId, chapterIndex, anchor = '', tocTitle = '') {
+    async loadChapter(bookId, chapterIndex, anchor = '', tocTitle = '') {
         if (!this.currentBook) return;
-        
+
         const chapter = EpubParser.getChapter(this.currentBook, chapterIndex);
         if (!chapter) return;
-        
+
         this.currentChapter = chapter;
-        
+
         // Use tocTitle if provided, otherwise fall back to chapter title
         const displayTitle = tocTitle || chapter.title || '';
         // Smart title formatting: if title already has chapter numbering, use it directly
         const hasChapterNumber = /^\s*(chapter|ch\.?|part|section|book)\s*\d+/i.test(displayTitle);
         const title = hasChapterNumber ? displayTitle : (chapter.displayNumber + (displayTitle ? '' + displayTitle : ''));
         const preview = chapter.preview || '';
-        
+
         this.elements.chapterTitle.innerHTML = `
             <div class="chapter-title-line">${this.escapeHtml(title)}</div>
             ${preview ? `<div class="chapter-preview-line">${this.escapeHtml(preview)}</div>` : ''}
         `;
-        
+
         // Render chapter content
         this.renderChapterContent(chapter);
-        
+
         // Calculate starting word position
         let wordIndex = 0;
-        
+
         if (anchor) {
             // Find word position for this anchor
             wordIndex = this.findWordIndexForAnchor(chapter, anchor);
             console.log(`[LOAD CHAPTER] Anchor "${anchor}" found at word index ${wordIndex}`);
         } else {
             // Use saved progress or start from beginning
-            const progress = StorageManager.getProgress(bookId);
+            const progress = await StorageManager.getProgress(bookId);
             console.log(`[LOAD CHAPTER] Checking progress for chapter ${chapterIndex}:`, progress);
             if (progress && progress.chapterIndex === chapterIndex) {
                 wordIndex = progress.wordIndex;
@@ -652,20 +712,20 @@ if (!saved) {
                 console.log(`[LOAD CHAPTER] No saved progress for this chapter, starting from word 0`);
             }
         }
-        
+
         // Ensure wordIndex is valid
         wordIndex = Math.max(0, Math.min(wordIndex, chapter.words.length - 1));
-        
+
         console.log(`[LOAD CHAPTER] Loading ${chapter.words.length} words starting at index ${wordIndex}`);
         SpritzEngine.loadWords(chapter.words, wordIndex);
-        
+
         // Update active chapter in sidebar
         this.highlightActiveChapter(bookId, chapterIndex, anchor);
-        
+
         // Expand sections containing this chapter
         this.expandSectionsForChapter(bookId, chapterIndex);
-        
-        // Save progress
+
+        // Save progress (fire-and-forget)
         StorageManager.saveProgress(bookId, chapterIndex, wordIndex);
     },
 
@@ -1138,16 +1198,16 @@ if (!saved) {
      */
     handleChapterEnd() {
         if (!this.currentBook || !this.currentChapter) return;
-        
+
         const nextIndex = this.currentChapter.index + 1;
-        
+
         if (nextIndex < this.currentChapter.totalChapters) {
             // Mark new chapter transition
             SpritzEngine.markNewChapter();
-            
+
             // Small delay then load next chapter
-            setTimeout(() => {
-                this.loadChapter(this.currentBook.id, nextIndex);
+            setTimeout(async () => {
+                await this.loadChapter(this.currentBook.id, nextIndex);
                 SpritzEngine.play();
             }, 100);
         }
