@@ -342,7 +342,7 @@ body {
 
 /* Chapter Items */
 .chapter-item {
-    padding: 10px 16px 10px 64px;
+    padding: 5px 12px 5px 48px;
     cursor: pointer;
     border-top: 1px solid var(--border);
     transition: all 0.2s ease;
@@ -365,7 +365,8 @@ body {
 }
 
 .chapter-title {
-    font-size: 0.875rem;
+    font-size: 0.8125rem;
+    line-height: 1.25;
     color: var(--text-primary);
     white-space: nowrap;
     overflow: hidden;
@@ -374,12 +375,13 @@ body {
 }
 
 .chapter-preview {
-    font-size: 0.75rem;
+    font-size: 0.6875rem;
+    line-height: 1.2;
     color: var(--text-muted);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    margin-top: 2px;
+    margin-top: 0;
     font-style: italic;
 }
 
