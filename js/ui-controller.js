@@ -161,9 +161,13 @@ const UIController = {
         const chapterItem = event.target.closest('.chapter-item');
         if (chapterItem) {
             const bookId = chapterItem.dataset.bookId;
-            const chapterIndex = parseInt(chapterItem.dataset.chapterIndex);
+            const chapterIndex = parseInt(chapterItem.dataset.chapterIndex, 10);
             const anchor = chapterItem.dataset.anchor || '';
             const tocTitle = chapterItem.dataset.tocTitle || '';
+            // Ensure the book is loaded so we have full chapter data (fixes wrong chapter text when switching)
+            if (!this.currentBook || this.currentBook.id !== bookId) {
+                await this.loadBook(bookId);
+            }
             await this.loadChapter(bookId, chapterIndex, anchor, tocTitle);
             return;
         }
@@ -466,7 +470,8 @@ const UIController = {
             const tocChapterCount = book.toc && book.toc.length > 0
                 ? this.countTOCChapters(book.toc, book.chapters)
                 : 0;
-            const useTOC = tocChapterCount >= book.chapters.length * 0.5;
+            const useTOC = tocChapterCount >= book.chapters.length * 0.5 ||
+                (tocChapterCount > 0 && tocChapterCount > book.chapters.length);
             if (book.toc && book.toc.length > 0 && useTOC) {
                 tocHtml = this.renderTOCTree(book.toc, book.id, book.chapters);
             }
@@ -758,52 +763,51 @@ const UIController = {
      */
     findWordIndexForAnchor(chapter, anchor) {
         if (!chapter.content || !anchor) return 0;
-        
+
         try {
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(chapter.content, 'text/html');
-            
-            // Find element with this anchor ID
-            const element = doc.getElementById(anchor) || 
-                           doc.querySelector(`[name="${anchor}"]`) ||
-                           doc.querySelector(`a[name="${anchor}"]`);
-            
+            const { doc, body } = EpubParser.parseContentDocument(chapter.content);
+            if (!doc || !body) return 0;
+
+            const element = doc.getElementById(anchor) ||
+                doc.querySelector(`[name="${anchor}"]`) ||
+                doc.querySelector(`a[name="${anchor}"]`);
+
             if (!element) {
                 console.log(`Anchor "${anchor}" not found in chapter`);
                 return 0;
             }
-            
-            // Get all text content up to this element
+
             const walker = document.createTreeWalker(
-                doc.body,
+                body,
                 NodeFilter.SHOW_TEXT,
                 null,
                 false
             );
-            
-            let textBeforeAnchor = '';
-            let foundAnchor = false;
-            
-            while (walker.nextNode() && !foundAnchor) {
+
+            let textUpToAndIncludingAnchor = '';
+            let pastAnchor = false;
+
+            while (walker.nextNode()) {
                 const node = walker.currentNode;
-                // Check if this node is before or inside our anchor element
-                if (element.contains(node) || element.compareDocumentPosition(node) & Node.DOCUMENT_POSITION_PRECEDING) {
-                    textBeforeAnchor += node.textContent;
-                }
                 if (element.contains(node)) {
-                    foundAnchor = true;
+                    textUpToAndIncludingAnchor += node.textContent;
+                    pastAnchor = true;
+                } else if (pastAnchor) {
+                    break;
+                } else if (element.compareDocumentPosition(node) & Node.DOCUMENT_POSITION_PRECEDING) {
+                    textUpToAndIncludingAnchor += node.textContent;
                 }
             }
-            
-            // Count words before anchor
-            const wordsBefore = textBeforeAnchor
+
+            const wordsBefore = textUpToAndIncludingAnchor
                 .replace(/\s+/g, ' ')
                 .trim()
                 .split(/\s+/)
                 .filter(w => w.length > 0)
                 .length;
-            
-            return Math.min(wordsBefore, chapter.words.length - 1);
+
+            // Start at first word after the heading (word index = wordsBefore is first word after)
+            return Math.min(wordsBefore, Math.max(0, chapter.words.length - 1));
         } catch (e) {
             console.error('Error finding anchor:', e);
             return 0;

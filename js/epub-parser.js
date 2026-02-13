@@ -387,12 +387,18 @@ const EpubParser = {
     async processSpineHierarchical(zip, spine, manifest, basePath, tocTree) {
         const allChapters = [];
         let sequentialChapterNum = 0;
+        const seenHrefPaths = new Set();
 
         for (const itemId of spine) {
             const manifestItem = manifest[itemId];
             if (!manifestItem) continue;
 
             const href = manifestItem.href;
+            const hrefPath = (href || '').split('#')[0].trim().toLowerCase();
+            if (seenHrefPaths.has(hrefPath)) {
+                continue;
+            }
+
             const fullPath = basePath + href;
 
             const content = await this.getFileContent(zip, fullPath);
@@ -403,6 +409,8 @@ const EpubParser = {
                 console.log(`Skipping ${href}: only ${words.length} words`);
                 continue;
             }
+
+            seenHrefPaths.add(hrefPath);
 
             const boundaries = this.getSectionBoundaries(content);
             const totalWords = words.length;
