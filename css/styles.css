@@ -439,15 +439,17 @@ body {
     overflow: hidden;
 }
 
-/* Top Bar */
+/* Top Bar - wraps so controls stay visible on tablet/narrow viewports */
 .top-bar {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    flex-wrap: wrap;
     padding: 16px 24px;
     background: var(--bg-secondary);
     border-bottom: 1px solid var(--border);
     gap: 16px;
+    min-width: 0;
 }
 
 .book-info {
@@ -471,7 +473,9 @@ body {
 .controls {
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
     gap: 12px;
+    min-width: 0;
 }
 
 .control-btn {
@@ -840,16 +844,16 @@ body {
     display: none;
     align-items: center;
     justify-content: center;
-    width: 44px;
-    height: 44px;
-    margin: 0 8px 0 0;
+    width: 36px;
+    height: 36px;
+    margin: 0;
     flex-shrink: 0;
     background: var(--bg-tertiary);
     border: 1px solid var(--border);
-    border-radius: 8px;
+    border-radius: 6px;
     color: var(--text-primary);
     cursor: pointer;
-    font-size: 1.25rem;
+    font-size: 1.125rem;
     transition: background 0.2s ease;
 }
 
@@ -874,6 +878,28 @@ body {
     transition: opacity 0.25s ease;
 }
 
+
+/* ========================================
+   Tablet - ensure top bar wraps (e.g. iPad)
+   ======================================== */
+@media (max-width: 1024px) {
+    .top-bar {
+        flex-wrap: wrap;
+        padding: 12px 16px;
+        gap: 12px;
+    }
+
+    .top-bar .book-info {
+        flex: 1 1 100%;
+        min-width: 0;
+    }
+
+    .top-bar .controls {
+        flex: 1 1 100%;
+        min-width: 0;
+        justify-content: flex-start;
+    }
+}
 
 /* ========================================
    Responsive - iPhone / small viewports
@@ -916,11 +942,11 @@ body {
         left: 0;
     }
 
-    /* Top bar: two rows so it doesn't crush */
+    /* Top bar: row 1 = book title only, row 2 = hamburger + controls */
     .top-bar {
         flex-wrap: wrap;
-        padding: 10px 12px;
-        gap: 10px;
+        padding: 8px 12px;
+        gap: 8px;
     }
 
     .top-bar .book-info {
@@ -931,17 +957,23 @@ body {
     }
 
     .top-bar .book-info h2 {
-        font-size: 1rem;
+        font-size: 0.9375rem;
     }
 
     .top-bar .sidebar-toggle {
-        order: -1;
+        order: 1;
         flex: 0 0 auto;
+        width: 34px;
+        height: 34px;
+        margin: 0;
+        margin-right: 2px;
+        font-size: 1rem;
     }
 
     .top-bar .controls {
         order: 1;
-        flex: 1 1 100%;
+        flex: 1 1 0;
+        min-width: 0;
         justify-content: flex-start;
         flex-wrap: wrap;
         gap: 8px;
