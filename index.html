@@ -37,6 +37,9 @@
         <main class="main-content">
             <!-- Top Bar -->
             <header class="top-bar">
+                <button type="button" class="sidebar-toggle" id="sidebarToggle" title="Library" aria-label="Open library">
+                    <span class="sidebar-toggle-icon">☰</span>
+                </button>
                 <div class="book-info" id="bookInfo">
                     <span class="no-book">Select a book to start reading</span>
                 </div>
@@ -126,6 +129,9 @@
             </div>
         </main>
     </div>
+
+    <!-- Sidebar overlay (mobile: tap to close library) -->
+    <div class="sidebar-overlay" id="sidebarOverlay" aria-hidden="true"></div>
 
     <!-- Loading Overlay -->
     <div class="loading-overlay" id="loadingOverlay" hidden>

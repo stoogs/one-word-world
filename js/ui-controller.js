@@ -59,6 +59,9 @@ const UIController = {
     cacheElements() {
         this.elements = {
             // Sidebar
+            sidebar: document.querySelector('.sidebar'),
+            sidebarToggle: document.getElementById('sidebarToggle'),
+            sidebarOverlay: document.getElementById('sidebarOverlay'),
             libraryContainer: document.getElementById('libraryContainer'),
             epubUpload: document.getElementById('epubUpload'),
             
@@ -101,6 +104,10 @@ const UIController = {
     bindEvents() {
         const e = this.elements;
         
+        // Sidebar toggle (mobile)
+        e.sidebarToggle.addEventListener('click', () => this.toggleSidebar());
+        e.sidebarOverlay.addEventListener('click', () => this.closeSidebar());
+        
         // File upload
         e.epubUpload.addEventListener('change', (event) => this.handleFileUpload(event));
         
@@ -133,6 +140,11 @@ const UIController = {
         
         // Play/Pause
         e.playPauseBtn.addEventListener('click', () => SpritzEngine.toggle());
+        
+        // Tap on main word area toggles zen/fullscreen (for touch devices, no keyboard)
+        e.spritzContainer.addEventListener('click', (ev) => {
+            if (ev.target.closest('.spritz-focus')) this.toggleZenMode();
+        });
         
         // Chapter toggle
         e.chapterToggle.addEventListener('click', () => this.toggleChapterPanel());
@@ -700,6 +712,8 @@ const UIController = {
     async loadChapter(bookId, chapterIndex, anchor = '', tocTitle = '') {
         if (!this.currentBook) return;
 
+        this.closeSidebar();
+
         const chapter = EpubParser.getChapter(this.currentBook, chapterIndex);
         if (!chapter) return;
 
@@ -997,6 +1011,26 @@ const UIController = {
         }
         
         StorageManager.saveSettings({ chapterPanelOpen: this.chapterPanelOpen });
+    },
+
+    /**
+     * Toggle sidebar (mobile library drawer)
+     */
+    toggleSidebar() {
+        const sidebar = this.elements.sidebar;
+        if (!sidebar) return;
+        const isOpen = document.body.classList.toggle('sidebar-open');
+        sidebar.classList.toggle('open', isOpen);
+        this.elements.sidebarOverlay.setAttribute('aria-hidden', !isOpen);
+    },
+
+    /**
+     * Close sidebar (mobile) – e.g. after selecting a chapter or tapping overlay
+     */
+    closeSidebar() {
+        document.body.classList.remove('sidebar-open');
+        if (this.elements.sidebar) this.elements.sidebar.classList.remove('open');
+        if (this.elements.sidebarOverlay) this.elements.sidebarOverlay.setAttribute('aria-hidden', 'true');
     },
 
     /**

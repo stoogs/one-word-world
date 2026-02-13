@@ -834,27 +834,197 @@ body {
 }
 
 /* ========================================
-   Responsive
+   Sidebar toggle (mobile menu) button
+   ======================================== */
+.sidebar-toggle {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    margin: 0 8px 0 0;
+    flex-shrink: 0;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-primary);
+    cursor: pointer;
+    font-size: 1.25rem;
+    transition: background 0.2s ease;
+}
+
+.sidebar-toggle:hover {
+    background: var(--bg-hover);
+}
+
+.sidebar-toggle:focus {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+/* Sidebar overlay (mobile) - shown when library drawer is open */
+.sidebar-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: var(--overlay);
+    z-index: 99;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease;
+}
+
+
+/* ========================================
+   Responsive - iPhone / small viewports
    ======================================== */
 @media (max-width: 768px) {
-    .sidebar {
-        position: absolute;
-        left: -320px;
-        z-index: 100;
-        transition: left 0.3s ease;
+    body.sidebar-open .sidebar-overlay {
+        display: block;
+        opacity: 1;
+        pointer-events: auto;
     }
-    
-    .sidebar.open {
+
+    /* Safe area for notch and home indicator (iPhone X+) */
+    body {
+        padding-left: env(safe-area-inset-left);
+        padding-right: env(safe-area-inset-right);
+        padding-bottom: env(safe-area-inset-bottom);
+    }
+
+    .app-container {
+        min-width: 0;
+    }
+
+    .sidebar-toggle {
+        display: flex;
+    }
+
+    .sidebar {
+        position: fixed;
+        top: 0;
+        bottom: 0;
+        left: -320px;
+        width: 280px;
+        max-width: 85vw;
+        z-index: 100;
+        transition: left 0.25s ease;
+        box-shadow: 4px 0 20px var(--shadow);
+    }
+
+    body.sidebar-open .sidebar {
         left: 0;
     }
-    
-    .spritz-word {
-        font-size: 2.5rem;
+
+    /* Top bar: two rows so it doesn't crush */
+    .top-bar {
+        flex-wrap: wrap;
+        padding: 10px 12px;
+        gap: 10px;
     }
-    
-    .wpm-display {
-        min-width: 60px;
+
+    .top-bar .book-info {
+        flex: 1 1 100%;
+        order: 0;
+        min-width: 0;
+        padding-right: 0;
+    }
+
+    .top-bar .book-info h2 {
+        font-size: 1rem;
+    }
+
+    .top-bar .sidebar-toggle {
+        order: -1;
+        flex: 0 0 auto;
+    }
+
+    .top-bar .controls {
+        order: 1;
+        flex: 1 1 100%;
+        justify-content: flex-start;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .top-bar .controls .font-size-control,
+    .top-bar .controls .wpm-control {
+        flex-shrink: 0;
+    }
+
+    .top-bar .controls .font-size-display {
+        min-width: 52px;
         font-size: 0.8125rem;
+    }
+
+    .top-bar .controls .wpm-display {
+        min-width: 56px;
+        font-size: 0.8125rem;
+    }
+
+    .top-bar .control-btn {
+        width: 36px;
+        height: 36px;
+        font-size: 1rem;
+    }
+
+    .top-bar .play-btn {
+        width: 44px;
+        height: 44px;
+    }
+
+    .top-bar .color-control label {
+        display: none;
+    }
+
+    .top-bar .color-control input[type="color"] {
+        width: 26px;
+        height: 22px;
+    }
+
+    .reader-container {
+        padding: 12px 16px;
+    }
+
+    .chapter-header {
+        margin-bottom: 16px;
+    }
+
+    .chapter-title-line {
+        font-size: 1.25rem;
+    }
+
+    .spritz-focus {
+        padding: 24px 32px;
+    }
+
+    .spritz-word {
+        font-size: 2.25rem;
+    }
+
+    .wpm-display {
+        min-width: 56px;
+        font-size: 0.8125rem;
+    }
+
+    .progress-container {
+        padding: 10px 12px;
+    }
+
+    .chapter-panel.expanded {
+        max-height: 40vh;
+        padding: 16px;
+    }
+}
+
+/* Very narrow (portrait iPhone) */
+@media (max-width: 430px) {
+    .sidebar {
+        width: 260px;
+    }
+
+    .top-bar .controls {
+        gap: 6px;
     }
 }
 
